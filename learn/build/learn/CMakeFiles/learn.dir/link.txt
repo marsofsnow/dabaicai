@@ -1,0 +1,1 @@
+/usr/bin/eosio-ld CMakeFiles/learn.dir/learn.obj -o learn.wasm 

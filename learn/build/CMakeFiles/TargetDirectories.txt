@@ -1,0 +1,3 @@
+/home/zh/zyy.contracts/learn/build/CMakeFiles/rebuild_cache.dir
+/home/zh/zyy.contracts/learn/build/CMakeFiles/edit_cache.dir
+/home/zh/zyy.contracts/learn/build/CMakeFiles/learn_project.dir

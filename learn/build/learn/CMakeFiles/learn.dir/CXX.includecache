@@ -1,0 +1,20 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/zh/zyy.contracts/learn/include/learn.hpp
+eosio/eosio.hpp
+-
+string
+-
+
+/home/zh/zyy.contracts/learn/src/learn.cpp
+learn.hpp
+-
+eosio/system.hpp
+-
+
