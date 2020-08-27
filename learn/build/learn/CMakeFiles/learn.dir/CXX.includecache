@@ -11,6 +11,10 @@ eosio/eosio.hpp
 -
 string
 -
+vector
+-
+eosio/system.hpp
+-
 
 /home/zh/zyy.contracts/learn/src/learn.cpp
 learn.hpp

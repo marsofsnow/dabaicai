@@ -17,6 +17,25 @@
             "name": "testcheck",
             "base": "",
             "fields": []
+        },
+        {
+            "name": "testcontract",
+            "base": "",
+            "fields": [
+                {
+                    "name": "account",
+                    "type": "name"
+                },
+                {
+                    "name": "age",
+                    "type": "uint64"
+                }
+            ]
+        },
+        {
+            "name": "testlearn",
+            "base": "",
+            "fields": []
         }
     ],
     "actions": [
@@ -28,6 +47,16 @@
         {
             "name": "testcheck",
             "type": "testcheck",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "testcontract",
+            "type": "testcontract",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "testlearn",
+            "type": "testlearn",
             "ricardian_contract": ""
         }
     ],
