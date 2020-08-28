@@ -69,6 +69,10 @@ CONTRACT learn : public contract {
          });
       }
 
+      ACTION edituser(name account,uint64_t phone,std::string signature);
+      ACTION deleteuser(name account);
+      ACTION loweruser(name account);
+
       ACTION addpost(name account,std::string content){
          require_auth(account);
          user_index users(get_self(),get_first_receiver().value);
@@ -98,6 +102,9 @@ CONTRACT learn : public contract {
       USING_ACTION(testcheck);
       USING_ACTION(addpost);
       USING_ACTION(adduser);
+      USING_ACTION(edituser);
+      USING_ACTION(deleteuser);
+      USING_ACTION(loweruser);
       USING_ACTION(hi);
 
    private:

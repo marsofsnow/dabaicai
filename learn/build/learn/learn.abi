@@ -36,11 +36,49 @@
             ]
         },
         {
+            "name": "deleteuser",
+            "base": "",
+            "fields": [
+                {
+                    "name": "account",
+                    "type": "name"
+                }
+            ]
+        },
+        {
+            "name": "edituser",
+            "base": "",
+            "fields": [
+                {
+                    "name": "account",
+                    "type": "name"
+                },
+                {
+                    "name": "phone",
+                    "type": "uint64"
+                },
+                {
+                    "name": "signature",
+                    "type": "string"
+                }
+            ]
+        },
+        {
             "name": "hi",
             "base": "",
             "fields": [
                 {
                     "name": "nm",
+                    "type": "name"
+                }
+            ]
+        },
+        {
+            "name": "loweruser",
+            "base": "",
+            "fields": [
+                {
+                    "name": "account",
                     "type": "name"
                 }
             ]
@@ -127,9 +165,24 @@
             "ricardian_contract": ""
         },
         {
+            "name": "deleteuser",
+            "type": "deleteuser",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "edituser",
+            "type": "edituser",
+            "ricardian_contract": ""
+        },
+        {
             "name": "hi",
             "type": "hi",
             "ricardian_contract": "Stub for hi action's ricardian contract"
+        },
+        {
+            "name": "loweruser",
+            "type": "loweruser",
+            "ricardian_contract": ""
         },
         {
             "name": "testcheck",
