@@ -15,10 +15,16 @@ vector
 -
 eosio/system.hpp
 -
+eosio/asset.hpp
+-
+eosio/transaction.hpp
+-
 
 /home/zh/zyy.contracts/learn/src/learn.cpp
 learn.hpp
 -
 eosio/system.hpp
+-
+eosio/asset.hpp
 -
 

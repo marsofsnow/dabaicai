@@ -36,6 +36,20 @@
             ]
         },
         {
+            "name": "defered",
+            "base": "",
+            "fields": [
+                {
+                    "name": "from",
+                    "type": "name"
+                },
+                {
+                    "name": "msg",
+                    "type": "string"
+                }
+            ]
+        },
+        {
             "name": "deleteuser",
             "base": "",
             "fields": [
@@ -102,33 +116,36 @@
             ]
         },
         {
-            "name": "testcheck",
-            "base": "",
-            "fields": []
-        },
-        {
-            "name": "testcheck1",
-            "base": "",
-            "fields": []
-        },
-        {
-            "name": "testcontract",
+            "name": "send",
             "base": "",
             "fields": [
                 {
-                    "name": "account",
+                    "name": "from",
                     "type": "name"
                 },
                 {
-                    "name": "age",
+                    "name": "msg",
+                    "type": "string"
+                },
+                {
+                    "name": "delay",
                     "type": "uint64"
                 }
             ]
         },
         {
-            "name": "testlearn",
+            "name": "sendtoken",
             "base": "",
-            "fields": []
+            "fields": [
+                {
+                    "name": "from",
+                    "type": "name"
+                },
+                {
+                    "name": "to",
+                    "type": "name"
+                }
+            ]
         },
         {
             "name": "user",
@@ -165,6 +182,11 @@
             "ricardian_contract": ""
         },
         {
+            "name": "defered",
+            "type": "defered",
+            "ricardian_contract": ""
+        },
+        {
             "name": "deleteuser",
             "type": "deleteuser",
             "ricardian_contract": ""
@@ -185,23 +207,13 @@
             "ricardian_contract": ""
         },
         {
-            "name": "testcheck",
-            "type": "testcheck",
+            "name": "send",
+            "type": "send",
             "ricardian_contract": ""
         },
         {
-            "name": "testcheck1",
-            "type": "testcheck1",
-            "ricardian_contract": ""
-        },
-        {
-            "name": "testcontract",
-            "type": "testcontract",
-            "ricardian_contract": ""
-        },
-        {
-            "name": "testlearn",
-            "type": "testlearn",
+            "name": "sendtoken",
+            "type": "sendtoken",
             "ricardian_contract": ""
         }
     ],

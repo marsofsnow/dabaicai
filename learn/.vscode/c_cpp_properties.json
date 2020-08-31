@@ -5,6 +5,7 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "/usr/opt/eosio.cdt/include/eosiolib/contracts",
+                "/usr/opt/eosio.cdt/include/eosiolib/core",
                 "/usr/opt/eosio.cdt/include"
             ],
             "defines": [],

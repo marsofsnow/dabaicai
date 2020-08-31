@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 #include <eosio/system.hpp>
+#include <eosio/asset.hpp>
+#include <eosio/transaction.hpp>
 #define USING_ACTION(name) using name##_action = action_wrapper<#name##_n, &learn::name>
 
 
@@ -15,80 +17,27 @@ CONTRACT learn : public contract {
       using contract::contract;
 
       
-
-
-
-
-
       ACTION hi( name nm );
-      ACTION testcheck1(){
-         uint8_t a=1;
-         uint8_t b=2;
-         //check(a==b,"a !=b");
-         print("1111",22,'\n');
-         print_f("%->%\n","周浩",10);
-         check(a==b,1);
-         std::string name="刘清";
-         print(name); //为什么没有输出呢？
-         std::vector<int> v{1,2,3,4,5};
-         for(auto& item:v){
-            print(item,'\n');
-
-         }
-         
-      }
-      ACTION testlearn(){
-         print(seconds(11).count(),'\n');
-         print(current_time_point().sec_since_epoch(), " ");
-         print(current_block_time().to_time_point().sec_since_epoch(), " ");
-
-      }
-
-      ACTION testcontract(name account, uint64_t age) {
-         print(get_self(), " ");            
-         print(get_first_receiver(), " ");  
-         print(account, " ");               
-         print(age, " ");
-      }
-      ACTION testcheck(){
-         user_index users(get_self(),get_first_receiver().value);
-         check(users.get_code()=="zhouhao"_n,"codes do not match!");
-         check(users.get_scope()==name{"zhouhao"}.value,"scopes do not match!");
-         print("match");
-
-      }
-      ACTION adduser(name account,uint64_t phone,std::string signture){
-         require_auth(account);
-         user_index users(get_self(),get_first_receiver().value);
-         users.emplace(account,[&](user& user){
-            user.account =account;
-            user.phone = phone;
-            user.regtime = time_point_sec(current_time_point());
-            user.signature = signture;
-
-         });
-      }
-
+      ACTION adduser(name account,uint64_t phone,std::string signture);
       ACTION edituser(name account,uint64_t phone,std::string signature);
       ACTION deleteuser(name account);
       ACTION loweruser(name account);
+      ACTION addpost(name account,std::string content);
 
-      ACTION addpost(name account,std::string content){
-         require_auth(account);
-         user_index users(get_self(),get_first_receiver().value);
+      //action的通信
+      ACTION sendtoken(name from,name to);
 
-         auto itr = users.find(account.value);
-         eosio::check(itr != users.end(), "account not found");
+      //注册一个action的监控函数，监听eosio.token::transfer这个action
+      [[eosio::on_notify("eosio.token::transfer")]] 
+      void onTransfer(name from, name to, asset quantity, std::string memo);
 
-         post_index posts(get_self(), get_first_receiver().value); 
-         posts.emplace(account, [&](auto& post){
-         post.id = posts.available_primary_key();
-         post.author = account;
-         post.content = content;
-      });
-         
+      //延迟ACTION
+      ACTION defered(name from, const std::string& msg);
+      ACTION send(name from,const std::string& msg,uint64_t delay);
+      [[eosio::on_notify("eosio::onerror")]]
+      void onError(const onerror& error);
 
-      }
+      
 
 
       //using hi_action = action_wrapper<"hi"_n, &learn::hi>;
@@ -96,10 +45,7 @@ CONTRACT learn : public contract {
       //using testlearn_action = action_wrapper<"testlearn"_n, &learn::testlearn>;
       //using testcontract_action = action_wrapper<"testcontract"_n, &learn::testcontract>;
 
-      USING_ACTION(testcontract);
-      USING_ACTION(testlearn);
-      USING_ACTION(testcheck1);
-      USING_ACTION(testcheck);
+      USING_ACTION(sendtoken);
       USING_ACTION(addpost);
       USING_ACTION(adduser);
       USING_ACTION(edituser);
@@ -110,18 +56,18 @@ CONTRACT learn : public contract {
    private:
       TABLE user {
          name account; //使用EOS账户名作为主键
-         uint64_t phone;
-         time_point_sec regtime; 
-         std::string signature;
+         uint64_t phone; //手机号
+         time_point_sec regtime; //注册时间
+         std::string signature; //备注
          uint64_t primary_key() const { return account.value; }
          uint64_t get_secondary_1() const { return phone; }
          uint64_t get_secondary_2() const { return regtime.sec_since_epoch(); }
       };
 
-      TABLE post {
+      TABLE post { //文章
       uint64_t id; //使用自增id作为主键
-      name author;
-      std::string content;
+      name author; //作者
+      std::string content;//文章内容
       uint64_t primary_key() const { return id; }
       uint64_t get_secondary_1() const { return author.value; }
       };
