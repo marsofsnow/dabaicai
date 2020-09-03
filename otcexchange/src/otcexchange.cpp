@@ -12,9 +12,10 @@ ACTION otcexchange::putmkorder(const std::string& market,
                   const std::string& source
                   )
 {
+   check(side==MARKET_ORDER_SIDE_ASK || side==MARKET_ORDER_SIDE_BID, SIDE_INVALID_STR);
    require_auth(user);
 
-   std::string scope=market+std::to_string(MARKET_ROLE_MAKER);
+   std::string scope=market+std::to_string(MARKET_ROLE_MAKER)+std::to_string(side);
    order_index_t mk_orders(_self,name{scope}.value);
 
    mk_orders.emplace(user,[&](order& order){
@@ -54,9 +55,10 @@ ACTION otcexchange::puttkorder(const std::string& market,
                   )
 
 {
-    require_auth(user);
+   check(side==MARKET_ORDER_SIDE_ASK || side==MARKET_ORDER_SIDE_BID, SIDE_INVALID_STR);
+   require_auth(user);
 
-   std::string scope=market+std::to_string(MARKET_ROLE_TAKER);
+   std::string scope=market+std::to_string(MARKET_ROLE_TAKER)+std::to_string(side);
    order_index_t tk_orders(_self,name{scope}.value);
 
    tk_orders.emplace(user,[&](order& order){
@@ -80,7 +82,7 @@ ACTION otcexchange::puttkorder(const std::string& market,
       order.deal_stock     = 0;                                //累计的交易sotck数量
       order.deal_money     = 0;                                //累计的交易money
       order.source         = source;                           //备注信息，订单来源
-      /*
+      
       order.vec_deal.emplace_back(
                 side,
                 deal_order_id,
@@ -91,7 +93,7 @@ ACTION otcexchange::puttkorder(const std::string& market,
                 0,
                 0,
                 source
-      ); */                   
+      );                   
       
 
    });
@@ -101,6 +103,19 @@ ACTION otcexchange::puttkorder(const std::string& market,
 
 ACTION otcexchange::getorders(const std::string& market,uint8_t role,uint8_t side)
 {
+   check(role==MARKET_ROLE_TAKER     || role==MARKET_ROLE_MAKER,     ROLE_INVALID_STR);
+   check(side==MARKET_ORDER_SIDE_ASK || side==MARKET_ORDER_SIDE_BID, SIDE_INVALID_STR);
+
+   std::string scope=market+std::to_string(role)+std::to_string(side);
+   order_index_t orders(_self,name{scope}.value);
+   auto price_index = orders.get_index<"byprice"_n>();
+   auto itr = price_index.begin();
+   while (itr!=price_index.end())
+   {
+      ++itr;
+   }
+   
+   
 
 
 }

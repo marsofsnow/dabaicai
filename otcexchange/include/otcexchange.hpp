@@ -83,31 +83,25 @@ CONTRACT otcexchange : public contract {
          uint64_t    bid_fee;               //收取的买方手续费
          std::string msg;                   //备注信息
 
+         deal() =default;
 
-
-         //表的构造函数
-
-         deal(uint8_t side,
-              uint64_t    deal_order_id,
-              name        deal_user,
-              uint64_t    price,
-              uint64_t    amount,
-              uint64_t    deal_quota,
-              uint64_t    ask_fee,
-              uint64_t    bid_fee,
-              const std::string& msg
-            ):ctime(current_time_point()),
-              side(side),
-              deal_order_id(deal_order_id),
-              deal_user(deal_user),
-              price(price),
-              amount(amount),
-              deal_quota(deal_quota),
-              ask_fee(ask_fee),
-              bid_fee(bid_fee),
-              msg(msg)
-              {}
-
+         deal(
+            uint8_t side1,
+            uint64_t deal_order_id1,
+            name deal_user1,
+            uint64_t price1,
+            uint64_t amount1,
+            uint64_t deal_quota1,
+            uint64_t ask_fee1,
+            uint64_t bid_fee1,
+            const std::string& msg1
+         ):ctime(current_time_point()),
+           side(side1),
+           deal_order_id(deal_order_id1),
+           deal_user(deal_user1),
+           price(price1),
+           amount(amount1),
+           deal_quota(deal_quota1),ask_fee(ask_fee1),bid_fee(bid_fee1),msg(msg1){}
       };
 
       TABLE order{
@@ -131,6 +125,8 @@ CONTRACT otcexchange : public contract {
          uint64_t    deal_money;                  //累计的交易money
          std::string source;                      //备注信息，订单来源
          std::vector<deal> vec_deal;              //成交明细
+
+         std::vector<uint64_t> ids;
 
 
          uint64_t primary_key()          const { return order_id; }    // primary key auto increase
