@@ -6,7 +6,8 @@
                 "${workspaceFolder}/**",
                 "/usr/opt/eosio.cdt/1.7.0/include/eosiolib/contracts",
                 "/usr/opt/eosio.cdt/1.7.0/include/eosiolib/core",
-                "/usr/opt/eosio.cdt/1.7.0/include"
+                "/usr/opt/eosio.cdt/1.7.0/include",
+                "${workspaceFolder}/"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",

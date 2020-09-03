@@ -59,8 +59,8 @@ ACTION maker::insert(name account,std::string tip){
    orders.emplace(account,[&](order_t& order){
       order.id      = orders.available_primary_key();
       order.account = account;
-      order.ctime   = current_time_point();
-      order.utime   = current_time_point();
+      order.ctime   = time_point_sec(current_time_point());
+      order.utime   = order.utime;
       order.tip     = tip;
 
    });
@@ -86,8 +86,8 @@ ACTION maker::getbyaccount(name account){
       print_f("id=% ,account=%, ctime=%,utime=%,tip=%\n",
               itr->id,
               itr->account.to_string(),
-              itr->ctime.sec_since_epoch(),
-              itr->utime.sec_since_epoch(),
+              /*itr->ctime.sec_since_epoch(),
+              itr->utime.sec_since_epoch(),*/
               itr->tip
              );
       itr++;

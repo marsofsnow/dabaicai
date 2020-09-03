@@ -6,6 +6,8 @@
     "font-switcher.fontFamily": "Fira Code,Consolas, DejaVu Sans Mono, monospace",
     "files.associations": {
         "array": "cpp",
-        "ctime": "cpp"
+        "ctime": "cpp",
+        "unordered_map": "cpp",
+        "*.tcc": "cpp"
     }
 }

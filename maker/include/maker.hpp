@@ -2,8 +2,8 @@
 #include <eosio/asset.hpp>
 #include <eosio/action.hpp>
 #include <eosio/transaction.hpp>
-#include <string>
 #include <eosio/singleton.hpp>
+#include <string>
 #define USING_ACTION(name) using name##_action = action_wrapper<#name##_n, &maker::name>
 
 using namespace eosio;
@@ -43,8 +43,8 @@ CONTRACT maker : public contract {
       TABLE order_t{
          uint64_t       id;            //自增id 
          name           account;       //用户名
-         time_point ctime;         //创建时间
-         time_point utime;         //更新时间
+         time_point_sec ctime;         //创建时间
+         time_point_sec utime;         //更新时间
          std::string    tip;           //备注信息
          uint64_t primary_key() const {return id; }
          uint64_t get_secondary_account() const {return account.value;}
