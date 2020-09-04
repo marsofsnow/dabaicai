@@ -7,6 +7,15 @@
 //#include <boost/timer.hpp>
 
 
+ACTION maker::hash(const std::string &str){
+   // Hash the given string
+   checksum256 hashed = sha256(str.c_str(), str.length());
+   // Convert output to hexadecimal string
+   std::string result = tool::to_hex(hashed);
+   // Print result
+   print(result);
+}
+
 ACTION maker::hi( name nm ) {
    //boost::timer t;
    /* fill in action body */
@@ -86,8 +95,8 @@ ACTION maker::getbyaccount(name account){
       print_f("id=% ,account=%, ctime=%,utime=%,tip=%\n",
               itr->id,
               itr->account.to_string(),
-              /*itr->ctime.sec_since_epoch(),
-              itr->utime.sec_since_epoch(),*/
+              itr->ctime.sec_since_epoch(),
+              itr->utime.sec_since_epoch(),
               itr->tip
              );
       itr++;

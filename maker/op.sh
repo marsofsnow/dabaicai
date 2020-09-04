@@ -36,7 +36,7 @@ EOS5AmFUKDGfGJVRMU4RnVgwLaCksGhH7WJVF6kQhUPJe1rwfco7d  \
 cc get account  maker
 cc get currency balance eosio.token maker 
 cc get table eosio eosio voters 
-
+cc get table maker maker order
 
 cc get table  eosio eosio global
 cc get table  eosio eosio global2

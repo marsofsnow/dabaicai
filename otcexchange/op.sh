@@ -39,6 +39,7 @@ cc get table eosio eosio voters
 cc get table  otcexchange otcexchange order
 cc get table  eosio eosio global
 cc get table  eosio eosio global2
+cc get table maker zhouhao order
 
 
 #调用合约
@@ -54,3 +55,10 @@ cc set account permission zhouhao active '{"threshold": 1,"keys": [{"key": "EOS5
 
 cc set account permission test active --add-code
 cc push action otcexchange  wrapperhi '["zhouhao","创建一个广告挂单"]' -p zhouhao
+
+
+
+cc get table otcexchange otcchange otc
+cc push action otcexchange createspot '["SYS","CNY",4,4,1]' -p zhouhao
+cc push action otcexchange removespots '[]' -p zhouhao //移除数据
+cc push action otcexchange getspots '[]' -p zhouhao

@@ -9,5 +9,6 @@ add_contract( maker maker maker.cpp )
 
 
 target_include_directories( maker PUBLIC ${CMAKE_SOURCE_DIR}/../include  )
+target_include_directories( maker PUBLIC ${CMAKE_SOURCE_DIR}/../..  )
 
 target_ricardian_directory( maker ${CMAKE_SOURCE_DIR}/../ricardian )

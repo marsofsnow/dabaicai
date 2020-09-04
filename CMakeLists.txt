@@ -31,9 +31,9 @@ ExternalProject_Add(
 
 
 ExternalProject_Add(
-   otcsetting_project
-   SOURCE_DIR ${CMAKE_SOURCE_DIR}/otcsetting
-   BINARY_DIR ${CMAKE_BINARY_DIR}/otcsetting
+   otcexchange_project
+   SOURCE_DIR ${CMAKE_SOURCE_DIR}/otcexchange
+   BINARY_DIR ${CMAKE_BINARY_DIR}/otcexchange
    CMAKE_ARGS -DCMAKE_TOOLCHAIN_FILE=${EOSIO_CDT_ROOT}/lib/cmake/eosio.cdt/EosioWasmToolchain.cmake
    UPDATE_COMMAND ""
    PATCH_COMMAND ""

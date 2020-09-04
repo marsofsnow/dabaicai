@@ -1,21 +1,25 @@
 #include <otcexchange.hpp>
+
+const name otcexchange::setting_scope="setting"_n;
+
 ACTION otcexchange::hi( name nm ) {
    /* fill in action body */
    print_f("Name : %\n",nm);
 }
 
 ACTION otcexchange::putmkorder(const std::string& market,
-                  name               user,
-                  uint8_t            side,
-                  uint64_t           price,
-                  uint64_t           amount,
-                  const std::string& source
+                               const std::string& side,
+                               name               user,
+                               uint64_t           price,
+                               uint64_t           amount,
+                               const std::string& source
                   )
 {
-   check(side==MARKET_ORDER_SIDE_ASK || side==MARKET_ORDER_SIDE_BID, SIDE_INVALID_STR);
    require_auth(user);
-
-   std::string scope=market+std::to_string(MARKET_ROLE_MAKER)+std::to_string(side);
+   check((side==MARKET_ORDER_SIDE_ASK_STR || side==MARKET_ORDER_SIDE_BID_STR), SIDE_INVALID_STR);
+   
+   //要注意name类型的长度限制
+   std::string scope=market+MARKET_ROLE_MAKER_STR+side;
    order_index_t mk_orders(_self,name{scope}.value);
 
    mk_orders.emplace(user,[&](order& order){
@@ -25,7 +29,7 @@ ACTION otcexchange::putmkorder(const std::string& market,
       order.ctime  = current_time_point();         //订单创建时间，精确到微秒
       order.utime  = order.ctime;                  //订单更新时间，精确到微秒
       order.status = 1;                            //订单状态，吃单和挂单的状态不同
-      order.side   = side;                         //买卖类型，1卖 2买
+      order.side   = side_to_uint(side);           //买卖类型，1卖 2买
       order.type   = MARKET_ORDER_TYPE_LIMIT;      //订单类型，1限价 2市价
       order.role   = MARKET_ROLE_MAKER;            //订单类型，1挂单 2吃单
       order.price  = price;                        //订单交易价格
@@ -39,26 +43,28 @@ ACTION otcexchange::putmkorder(const std::string& market,
       order.deal_stock     = 0;                                //累计的交易sotck数量
       order.deal_money     = 0;                                //累计的交易money
       order.source         = source;                           //备注信息，订单来源
-      //order.vec_deal=std::vector<deal>{};                      //成交明细
+      //order.vec_deal=std::vector<deal>{};                    //成交明细
       
 
    });
 }
       
-ACTION otcexchange::puttkorder(const std::string& market,
-                  name                user,
-                  uint8_t             side,
-                  uint64_t            price,
-                  uint64_t            amount,
-                  uint64_t            deal_order_id,
-                  const std::string& source
+ACTION otcexchange::puttkorder(  const std::string&  market,
+                                 const std::string&  side,
+                                 name                user,
+                                 uint64_t            price,
+                                 uint64_t            amount,
+                                 uint64_t            deal_order_id,
+                                 const std::string&  source
                   )
 
 {
-   check(side==MARKET_ORDER_SIDE_ASK || side==MARKET_ORDER_SIDE_BID, SIDE_INVALID_STR);
    require_auth(user);
 
-   std::string scope=market+std::to_string(MARKET_ROLE_TAKER)+std::to_string(side);
+   check((side==MARKET_ORDER_SIDE_ASK_STR || side==MARKET_ORDER_SIDE_BID_STR), SIDE_INVALID_STR);
+   
+
+   std::string scope=market+MARKET_ROLE_MAKER_STR+side;
    order_index_t tk_orders(_self,name{scope}.value);
 
    tk_orders.emplace(user,[&](order& order){
@@ -68,7 +74,7 @@ ACTION otcexchange::puttkorder(const std::string& market,
       order.ctime  = current_time_point();         //订单创建时间，精确到微秒
       order.utime  = order.ctime;                  //订单更新时间，精确到微秒
       order.status = 1;                            //订单状态，吃单和挂单的状态不同
-      order.side   = side;                         //买卖类型，1卖 2买
+      order.side   = side_to_uint(side);                         //买卖类型，1卖 2买
       order.type   = MARKET_ORDER_TYPE_LIMIT;      //订单类型，1限价 2市价
       order.role   = MARKET_ROLE_TAKER;            //订单类型，1挂单 2吃单
       order.price  = price;                        //订单交易价格
@@ -84,11 +90,12 @@ ACTION otcexchange::puttkorder(const std::string& market,
       order.source         = source;                           //备注信息，订单来源
       
       order.vec_deal.emplace_back(
-                side,
+                side_to_uint(side),
                 deal_order_id,
                 "zhouhao"_n,
                 price,
                 amount,
+                0,
                 0,
                 0,
                 0,
@@ -101,12 +108,13 @@ ACTION otcexchange::puttkorder(const std::string& market,
 
 
 
-ACTION otcexchange::getorders(const std::string& market,uint8_t role,uint8_t side)
+ACTION otcexchange::orderbook(const std::string& market,const std::string& role,const std::string& side)
 {
-   check(role==MARKET_ROLE_TAKER     || role==MARKET_ROLE_MAKER,     ROLE_INVALID_STR);
-   check(side==MARKET_ORDER_SIDE_ASK || side==MARKET_ORDER_SIDE_BID, SIDE_INVALID_STR);
+   check( (role==MARKET_ROLE_TAKER_STR      || role==MARKET_ROLE_MAKER_STR),      ROLE_INVALID_STR);
+   check((side==MARKET_ORDER_SIDE_ASK_STR   || side==MARKET_ORDER_SIDE_BID_STR), SIDE_INVALID_STR);
 
-   std::string scope=market+std::to_string(role)+std::to_string(side);
+    //要注意name类型的长度限制
+   std::string scope=market+MARKET_ROLE_MAKER_STR+side;
    order_index_t orders(_self,name{scope}.value);
    auto price_index = orders.get_index<"byprice"_n>();
    auto itr = price_index.begin();
@@ -115,12 +123,65 @@ ACTION otcexchange::getorders(const std::string& market,uint8_t role,uint8_t sid
       ++itr;
    }
    
-   
+}
 
+
+ACTION otcexchange::createspot(const std::string& stock,
+                           const std::string& money,
+                           uint8_t stock_prec, 
+                           uint8_t money_prec, 
+                           uint64_t min_amount
+                        )
+{
+
+   //print("1");
+   
+   init_otc();
+   
+   auto state = singleton_otc.get();
+   
+   market one(stock,money,stock_prec,money_prec,min_amount);
+   print(one.stock);
+   state.map_market.emplace(stock+money,one);
+   state.set_title.emplace(stock+money);
+   
+   print(state.set_title.begin()->c_str());
+   singleton_otc.set(state,_self);
+   print("3");
 
 }
 
 
+ACTION otcexchange::banspot(const std::string& stock,
+                               const std::string& money)
+{
+   init_otc();
+   auto state = singleton_otc.get();
+   std::string title(stock+money);
+   state.map_market.erase(title);
+   state.set_title.erase(title);
+   singleton_otc.set(state,_self);
+}
+
+
+ACTION otcexchange::getspots(){
+   if(singleton_otc.exists()){
+      print(singleton_otc.get().set_title.begin()->c_str(),"\n");
+   }else{
+      print("singleton is empty!,why???\n");
+   }
+}
+
+
+
+ACTION otcexchange::removespots(){
+   if(singleton_otc.exists()){
+   
+      singleton_otc.remove();
+   }else{
+      print("singleton is empty!,why???\n");
+   }
+}
 
 
 

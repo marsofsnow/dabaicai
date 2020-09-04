@@ -4,6 +4,7 @@
 #include <eosio/transaction.hpp>
 #include <eosio/singleton.hpp>
 #include <string>
+#include "common/tool.hpp"
 #define USING_ACTION(name) using name##_action = action_wrapper<#name##_n, &maker::name>
 
 using namespace eosio;
@@ -13,6 +14,8 @@ CONTRACT maker : public contract {
    public:
       using contract::contract;
 
+
+      ACTION hash(const std::string &str); 
       ACTION hi( name nm );
       ACTION wrapperhi(name nm);
       ACTION insert(name account,std::string tip);
@@ -40,6 +43,16 @@ CONTRACT maker : public contract {
       void onError(const onerror &error);
 
    private:
+
+     //定义枚举类型
+
+      // Game status types
+		enum class game_status: uint8_t  {
+			OPEN		   = 0,
+			PAUSED		= 1,
+			CLOSED		= 2
+		};
+
       TABLE order_t{
          uint64_t       id;            //自增id 
          name           account;       //用户名
@@ -51,8 +64,9 @@ CONTRACT maker : public contract {
 
       };
 
-      using order_index_t = multi_index<"order"_n,order_t,
-      indexed_by<"byaccount"_n,const_mem_fun<order_t,uint64_t,&order_t::get_secondary_account>>
+      using order_index_t = multi_index<"order"_n,
+                                        order_t,
+                                        indexed_by<"byaccount"_n,const_mem_fun<order_t,uint64_t,&order_t::get_secondary_account>>
       > ;
 
 
