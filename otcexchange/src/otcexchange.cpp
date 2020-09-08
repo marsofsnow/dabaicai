@@ -1,10 +1,34 @@
 #include <otcexchange.hpp>
+#include "nlohmann/json.hpp"
+//using namespace nlohmann;
 
-const name otcexchange::setting_scope="setting"_n;
+const name otcexchange::sg_markets_scope=name{SG_MARKETS_SCOPE_STR};
 
 ACTION otcexchange::hi( name nm ) {
    /* fill in action body */
+   /*
+   json j = {
+                {"pi", 3.141},
+                {"happy", true},
+                {"name", "Niels"},
+                {"nothing", nullptr},
+                {"answer", {
+                    {"everything", 42}
+                }},
+                {"list", {1, 0, 2}},
+                {"object", {
+                    {"currency", "USD"},
+                    {"value", 42.99}
+                }}
+            };
+   std::string d = j.dump();
+   print(d,"\n");
+   */
+
    print_f("Name : %\n",nm);
+
+
+   
 }
 
 ACTION otcexchange::putmkorder(const std::string& market,
@@ -126,50 +150,96 @@ ACTION otcexchange::orderbook(const std::string& market,const std::string& role,
 }
 
 
-ACTION otcexchange::createspot(const std::string& stock,
-                           const std::string& money,
-                           uint8_t stock_prec, 
-                           uint8_t money_prec, 
-                           uint64_t min_amount
+ACTION otcexchange::newmarket(const std::string& stock,
+                              const std::string& money,
+                              uint8_t stock_prec, 
+                              uint8_t money_prec, 
+                              uint64_t min_amount
                         )
 {
 
-   //print("1");
+   require_auth(_self);//必须要求是合约账号的权限
    
    init_otc();
    
-   auto state = singleton_otc.get();
+   auto state = sg_markets.get();
    
    market one(stock,money,stock_prec,money_prec,min_amount);
-   print(one.stock);
-   state.map_market.emplace(stock+money,one);
-   state.set_title.emplace(stock+money);
+  
+   state.map_markets.emplace(stock+money,one);
+
+   state.set_titles.emplace(stock+money);
    
-   print(state.set_title.begin()->c_str());
-   singleton_otc.set(state,_self);
-   print("3");
+   sg_markets.set(state,_self);
+   
+
 
 }
 
 
-ACTION otcexchange::banspot(const std::string& stock,
+ACTION otcexchange::closemarket(const std::string& stock,
+                                const std::string& money)
+{
+   require_auth(_self);//必须要求是合约账号的权限
+   init_otc();
+   auto state =sg_markets.get();
+   std::string pair(stock+money);
+
+   auto it = state.map_markets.find(pair);
+   check(it!=state.map_markets.end(),pair+"not exist!");
+   if(it->second.status!=MARKET_STATUS::MARKET_STATUS_OFF){
+      it->second.status=MARKET_STATUS::MARKET_STATUS_OFF;
+      state.set_titles.erase(pair);
+      sg_markets.set(state,_self);
+
+   }
+   
+
+
+   
+}
+
+ACTION otcexchange::openmarket(const std::string& stock,
                                const std::string& money)
 {
+   require_auth(_self);//必须要求是合约账号的权限
+      
    init_otc();
-   auto state = singleton_otc.get();
-   std::string title(stock+money);
-   state.map_market.erase(title);
-   state.set_title.erase(title);
-   singleton_otc.set(state,_self);
+   auto state =sg_markets.get();
+   std::string pair(stock+money);
+
+   auto it = state.map_markets.find(pair);
+   check(it!=state.map_markets.end(),pair+"not exist!");
+   if(it->second.status!=MARKET_STATUS::MARKET_STATUS_ON){
+      it->second.status=MARKET_STATUS::MARKET_STATUS_ON;
+      state.set_titles.emplace(pair);
+      sg_markets.set(state,_self);
+   }
 }
 
 
-ACTION otcexchange::getspots(){
-   if(singleton_otc.exists()){
-      print(singleton_otc.get().set_title.begin()->c_str(),"\n");
-   }else{
-      print("singleton is empty!,why???\n");
-   }
+
+ACTION otcexchange::getmarkets(){
+   init_otc();
+   auto state =sg_markets.get();
+   nlohmann::json j;
+   j["markets"] = state.map_markets;
+   j["pairs"]   = state.set_titles;
+   print(j.dump(),"\n");
+
+
+}
+
+ACTION otcexchange::(const std::string& stock,
+                     const std::string& money){
+   init_otc();
+   auto state =sg_markets.get();
+   nlohmann::json j;
+   j["markets"] = state.map_markets;
+   j["pairs"]   = state.set_titles;
+   print(j.dump(),"\n");
+
+
 }
 
 
@@ -177,7 +247,7 @@ ACTION otcexchange::getspots(){
 ACTION otcexchange::removespots(){
    if(singleton_otc.exists()){
    
-      singleton_otc.remove();
+     sg_markets.remove();
    }else{
       print("singleton is empty!,why???\n");
    }

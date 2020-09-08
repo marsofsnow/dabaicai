@@ -9,6 +9,7 @@
 #include "common/define.hpp"
 #include "define.h"
 
+
 using namespace eosio;
 
 
@@ -19,7 +20,7 @@ CONTRACT otcexchange : public contract {
       using contract::contract;
       otcexchange(name self, name first_receiver, datastream<const char*> ds):
                   contract(self,first_receiver,ds),
-                  singleton_otc(self,setting_scope.value){} //单例是属于合约的setting_scope.value
+                  sg_markets(self,sg_markets_scope.value){} //单例是属于合约的setting_scope.value
 
                                                                            
 
@@ -55,27 +56,7 @@ CONTRACT otcexchange : public contract {
       USING_ACTION(otcexchange,orderbook);
 
 
-      //otc market 操作
-      ACTION createspot(const std::string& stock,
-                           const std::string& money,
-                           uint8_t  stock_prec, 
-                           uint8_t  money_prec, 
-                           uint64_t min_amount
-                            );
-
-      
-      ACTION banspot(const std::string& stock,
-                        const std::string& money);
-
-      ACTION getspots();
-
-      ACTION removespots();
-
-
-      USING_ACTION(otcexchange,createspot);
-      USING_ACTION(otcexchange,banspot);
-      USING_ACTION(otcexchange,getspots);
-      USING_ACTION(otcexchange,removespots);
+     
 
 
 
@@ -91,14 +72,109 @@ CONTRACT otcexchange : public contract {
          if(role=="tk") return 2;
          return 0;
       }
+
+      
+//------------------------define markets begin-------------------------------//
+   private:
+      enum class MARKET_STATUS:uint8_t{
+        MARKET_STATUS_ON  = 1, //允许交易
+        MARKET_STATUS_OFF = 2, //不允许交易
+      };
+
+      //交易对 ADXCNY
+      TABLE market{
+         std::string         pair;      //交易对
+         std::string         stock =""; //coin
+         std::string         money =""; //fiat
+         uint8_t             stock_prec = 4 ; 
+         uint8_t             money_prec = 2 ;
+         uint8_t             fee_prec   = 4 ;
+         uint64_t            min_amount = 4 ;
+         MARKET_STATUS       status     = MARKET_STATUS::MARKET_STATUS_ON;
+
+         
+
+
+         
+
+         market(const std::string& stock="",
+                const std::string& money="",
+                uint8_t  stock_prec=4, 
+                uint8_t  money_prec=2, 
+                uint64_t min_amount=4):
+                                     pair(stock+money),
+                                     stock(stock),
+                                     money(money),
+                                     stock_prec(stock_prec),
+                                     money_prec(money_prec),
+                                     fee_prec(stock_prec),
+                                     min_amount(min_amount),
+                                     status(MARKET_STATUS::MARKET_STATUS_ON){}
+
+         EOSLIB_SERIALIZE( market, (pair)(stock)(money)(stock_prec)(money_prec)(fee_prec)(min_amount)(status) )
+
+               
+      };
+
+      using map_market_t  =  std::map<std::string,market>;
+      using set_title_t   =  std::set<std::string>; //stock money pair
+
+      TABLE  markets{
+         map_market_t map_markets;
+         set_title_t  set_titles;
+         EOSLIB_SERIALIZE( markets, ( map_markets)(set_titles) )
+      };
+      using singleton_markets_t  = singleton< "markets"_n,markets>;
+      singleton_markets_t sg_markets; //定义了单例类,整个
+
+      static const name sg_markets_scope;
+
+
+
       //初始化单例
       inline void init_otc(){
-         if(!singleton_otc.exists()){
-            singleton_otc.get_or_create(_self,otc());
+         if(!sg_markets.exists()){
+            sg_markets.get_or_create(_self,markets());
          }
       }
-      
+   public:
 
+       //new one  market 操作
+      ACTION newmarket(const std::string& stock,
+                           const std::string& money,
+                           uint8_t  stock_prec, 
+                           uint8_t  money_prec, 
+                           uint64_t min_amount
+                            );
+
+      //交易对禁止交易
+      ACTION closemarket(const std::string& stock,
+                         const std::string& money);
+
+      
+      //交易对放开交易
+      ACTION openmarket(const std::string& stock,
+                        const std::string& money);
+
+      //获取所有的上架的交易对
+      ACTION getmarkets();
+      ACTION getmarket(const std::string& stock,
+                        const std::string& money);
+
+
+      //清空所有的交易对
+      ACTION rmmarkers(); 
+
+
+      USING_ACTION(otcexchange,newmarket);
+      USING_ACTION(otcexchange,closemarket);
+      USING_ACTION(otcexchange,openmarket);
+      USING_ACTION(otcexchange,rmmarkers);
+      USING_ACTION(otcexchange,getmarkets);
+      USING_ACTION(otcexchange,getmarket);
+
+
+//------------------------define markets end-------------------------------//
 
 
    private:
@@ -205,53 +281,7 @@ CONTRACT otcexchange : public contract {
 
 
 
-     
 
-      
-      TABLE market{
-         std::string         title;
-         std::string         stock ="";
-         std::string         money ="";
-         uint8_t             stock_prec = 4 ; 
-         uint8_t             money_prec = 2 ;
-         uint8_t             fee_prec   = 4 ;
-         uint64_t            min_amount = 4 ;
-
-         
-
-
-         
-
-         market(const std::string& stock="",
-                const std::string& money="",
-                uint8_t  stock_prec=4, 
-                uint8_t  money_prec=2, 
-                uint64_t min_amount=4):
-                                     title(stock+money),
-                                     stock(stock),
-                                     money(money),
-                                     stock_prec(stock_prec),
-                                     money_prec(money_prec),
-                                     fee_prec(stock_prec),
-                                     min_amount(min_amount){}
-
-         EOSLIB_SERIALIZE( market, (title)(stock)(money)(stock_prec)(money_prec)(fee_prec)(min_amount) )
-
-               
-      };
-
-      using map_market_t  =  std::map<std::string,market>;
-      using set_title_t   =  std::set<std::string>; //stock money pair
-
-      TABLE  otc{
-         map_market_t map_market;
-         set_title_t  set_title;
-         EOSLIB_SERIALIZE( otc, ( map_market)(set_title) )
-      };
-      using singleton_type  = singleton< "otc"_n,otc>;
-      singleton_type singleton_otc; //定义了单例类,必须显示定义合约的构造函数
-
-      static const name setting_scope;
 
 
 

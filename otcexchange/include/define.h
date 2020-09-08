@@ -24,3 +24,7 @@
 #define SIDE_INVALID_STR    "side must be 1(ask)     or 2(bid）"
 
 #define TOKEN_SYMBOL_CODE                "SYS"  //代币的符号
+
+#define EOS_SYMBOL symbol(symbol_code("EOS"),4)
+
+#define SG_MARKETS_SCOPE_STR       "markets"

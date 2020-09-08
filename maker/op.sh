@@ -55,3 +55,6 @@ cc set account permission zhouhao active '{"threshold": 1,"keys": [{"key": "EOS5
 
 cc set account permission test active --add-code
 cc push action maker  wrapperhi '["zhouhao","创建一个广告挂单"]' -p zhouhao
+
+
+cc push action contract create '{"account":"acc_name","first_name":{"is_private":"true"}}'  -p zhouhao

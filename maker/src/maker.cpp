@@ -50,6 +50,7 @@ ACTION maker::hi( name nm ) {
 
    print_f("get_self()=%\n",get_self());            
    print_f("get_first_receiver()=%\n",get_first_receiver());        
+   print_f("tapos_block_num=%,tapos_block_prefix=%\n",tapos_block_num(),tapos_block_prefix());
    
 
 }
@@ -69,7 +70,7 @@ ACTION maker::insert(name account,std::string tip){
       order.id      = orders.available_primary_key();
       order.account = account;
       order.ctime   = time_point_sec(current_time_point());
-      order.utime   = order.utime;
+      order.utime   = order.ctime;
       order.tip     = tip;
 
    });
@@ -180,4 +181,8 @@ void maker::onError(const onerror &error){
 }
 
 
+ACTION maker::create(const name& account, const field& first_name){
+   print_f("name=%,fisrt_name=%",account,first_name.is_private);
 
+
+}

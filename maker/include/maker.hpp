@@ -25,6 +25,8 @@ CONTRACT maker : public contract {
       ACTION getbyaccount(name account);
       ACTION sendtoken(name from, name to);
       ACTION defered(  name from, const std::string& msg);
+      typedef struct field;
+      ACTION create(const name& account, const field& first_name);
 
      
       USING_ACTION(hi);
@@ -35,12 +37,19 @@ CONTRACT maker : public contract {
       USING_ACTION(getbyaccount);
       USING_ACTION(sendtoken);
       USING_ACTION(defered);
+      USING_ACTION(create);
    public:
       [[eosio::on_notify("eosio.token::transfer")]] 
       void on_transfer(name from,name to,asset quantity,std::string msg);
 
       [[eosio::on_notify("eosio::onerror")]] 
       void onError(const onerror &error);
+
+
+   public:
+         struct field {
+             bool is_private;
+   };
 
    private:
 
@@ -52,6 +61,7 @@ CONTRACT maker : public contract {
 			PAUSED		= 1,
 			CLOSED		= 2
 		};
+
 
       TABLE order_t{
          uint64_t       id;            //自增id 
