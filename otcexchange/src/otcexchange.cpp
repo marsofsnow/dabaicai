@@ -1,290 +1,270 @@
 #include <otcexchange.hpp>
-#include "nlohmann/json.hpp"
+#include <eosio/print.hpp>
+#include <algorithm>
+
+
+//#include "nlohmann/json.hpp"
 //using namespace nlohmann;
 
-const name otcexchange::sg_markets_scope=name{SG_MARKETS_SCOPE_STR};
-
-ACTION otcexchange::hi( name nm ) {
-   /* fill in action body */
-   /*
-   json j = {
-                {"pi", 3.141},
-                {"happy", true},
-                {"name", "Niels"},
-                {"nothing", nullptr},
-                {"answer", {
-                    {"everything", 42}
-                }},
-                {"list", {1, 0, 2}},
-                {"object", {
-                    {"currency", "USD"},
-                    {"value", 42.99}
-                }}
-            };
-   std::string d = j.dump();
-   print(d,"\n");
-   */
-
-   print_f("Name : %\n",nm);
-
-
+ACTION otcexchange::hi(name nm)
+{
+   print_f("Name : %\n", nm);
+   
    
 }
 
-ACTION otcexchange::putmkorder(const std::string& market,
-                               const std::string& side,
-                               name               user,
-                               uint64_t           price,
-                               uint64_t           amount,
-                               const std::string& source
-                  )
+ACTION otcexchange::putmkorder(const std::string &market,
+                               const std::string &side,
+                               name      user,
+                               uint64_t  price,
+                               uint64_t  amount,
+                               uint64_t  min_amount,
+                               uint64_t  max_amount,
+                               const std::string &source)
 {
    require_auth(user);
-   check((side==MARKET_ORDER_SIDE_ASK_STR || side==MARKET_ORDER_SIDE_BID_STR), SIDE_INVALID_STR);
+   check((side == MARKET_ORDER_SIDE_ASK_STR || side == MARKET_ORDER_SIDE_BID_STR), SIDE_INVALID_STR);
    
+
+
+
    //要注意name类型的长度限制
-   std::string scope=market+MARKET_ROLE_MAKER_STR+side;
-   order_index_t mk_orders(_self,name{scope}.value);
+   std::string scope = market + MARKET_ROLE_MAKER_STR + side;
+   transform(scope.begin(),scope.end(),scope.begin(),::tolower);
+   
 
-   mk_orders.emplace(user,[&](order& order){
-      order.order_id = mk_orders.available_primary_key();
+   
+   order_index_t mk_orders(_self, name{scope}.value);
 
-      order.user   = user;                         //订单所属用户，注意是name类型
-      order.ctime  = current_time_point();         //订单创建时间，精确到微秒
-      order.utime  = order.ctime;                  //订单更新时间，精确到微秒
-      order.status = 1;                            //订单状态，吃单和挂单的状态不同
-      order.side   = side_to_uint(side);           //买卖类型，1卖 2买
-      order.type   = MARKET_ORDER_TYPE_LIMIT;      //订单类型，1限价 2市价
-      order.role   = MARKET_ROLE_MAKER;            //订单类型，1挂单 2吃单
-      order.price  = price;                        //订单交易价格
-      order.amount = amount;                       //订单交易数量
-      order.min_amount = 2;                        //订单最小成交数量
-      order.taker_fee_rate = 1000;                 //吃单的手续费率
-      order.maker_fee_rate = 1000;                 //挂单的手续费率
-      order.left           = amount;               //剩余多少数量未成交
-      order.freeze         = 0;                                //冻结的stock或者money
-      order.deal_fee       = 0;                                //累计的交易手续费
-      order.deal_stock     = 0;                                //累计的交易sotck数量
-      order.deal_money     = 0;                                //累计的交易money
-      order.source         = source;                           //备注信息，订单来源
-      //order.vec_deal=std::vector<deal>{};                    //成交明细
+   mk_orders.emplace(user, [&](order &order) {
+      order.id = mk_orders.available_primary_key();
+
+      order.user           = user;                                        //订单所属用户，注意是name类型
+      order.ctime          = current_time_point();                        //订单创建时间，精确到微秒
+      order.utime          = order.ctime;                                 //订单更新时间，精确到微秒
+      order.status         = ORDER_STATUS_CREATED;                        //订单状态，吃单和挂单的状态不同
+      order.side           = side_to_uint(side);                          //买卖类型，1卖 2买
+      order.type           = MARKET_ORDER_TYPE_LIMIT;                     //订单类型，1限价 2市价
+      order.role           = MARKET_ROLE_MAKER;                           //订单类型，1挂单 2吃单
+      order.price          = price;                                       //订单交易价格
+      order.amount         = amount;                                      //订单交易数量
+      order.min_amount     = min_amount;                                  //订单最小成交数量,默认是2
+      order.max_amount     = max_amount;                                  //订单最小成交数量,默认是2
+      order.taker_fee_rate = 1000;                                        //吃单的手续费率
+      order.maker_fee_rate = 1000;                                        //挂单的手续费率
+      order.left           = amount;                                      //剩余多少数量未成交
+      order.freeze         = 0;                                           //冻结的stock或者money
+      order.deal_fee       = 0;                                           //累计的交易手续费
+      order.deal_stock     = 0;                                           //累计的交易sotck数量
+      order.deal_money     = 0;                                           //累计的交易money
+      order.source         = source;                                      //备注信息，订单来源
       
-
    });
 }
-      
-ACTION otcexchange::puttkorder(  const std::string&  market,
-                                 const std::string&  side,
-                                 name                user,
-                                 uint64_t            price,
-                                 uint64_t            amount,
-                                 uint64_t            deal_order_id,
-                                 const std::string&  source
-                  )
+
+ACTION otcexchange::puttkorder(const std::string &market,
+                               const std::string &side,
+                               name user,
+                               uint64_t price,
+                               uint64_t amount,
+                               uint64_t mk_order_id,
+                               const std::string &source)
 
 {
+   //cc push action otc puttkorder '["adxcny","bid","zhouhao",10,100,0,"我来买币"]' -p zhouhao
    require_auth(user);
+   check((side == MARKET_ORDER_SIDE_ASK_STR || side == MARKET_ORDER_SIDE_BID_STR), SIDE_INVALID_STR);
 
-   check((side==MARKET_ORDER_SIDE_ASK_STR || side==MARKET_ORDER_SIDE_BID_STR), SIDE_INVALID_STR);
+   //1.找到对手方订单的消息
+   std::string mk_side("");
+   if(side==MARKET_ORDER_SIDE_ASK_STR){
+      mk_side = MARKET_ORDER_SIDE_BID_STR;
+   }else{
+      mk_side = MARKET_ORDER_SIDE_ASK_STR;
+   }
+
    
 
-   std::string scope=market+MARKET_ROLE_MAKER_STR+side;
-   order_index_t tk_orders(_self,name{scope}.value);
+   std::string scope_maker = market + MARKET_ROLE_MAKER_STR + mk_side;
+   transform(scope_maker.begin(),scope_maker.end(),scope_maker.begin(),::tolower);
+  
 
-   tk_orders.emplace(user,[&](order& order){
-      order.order_id = tk_orders.available_primary_key();
+   order_index_t mk_orders(_self, name{scope_maker}.value);
+   auto mk_it = mk_orders.require_find(mk_order_id, MAKER_ORDER_NOR_EXIST_STR);
+   const auto& mk_user= mk_it->user; 
 
-      order.user   = user;                         //订单所属用户，注意是name类型
-      order.ctime  = current_time_point();         //订单创建时间，精确到微秒
-      order.utime  = order.ctime;                  //订单更新时间，精确到微秒
-      order.status = 1;                            //订单状态，吃单和挂单的状态不同
-      order.side   = side_to_uint(side);                         //买卖类型，1卖 2买
-      order.type   = MARKET_ORDER_TYPE_LIMIT;      //订单类型，1限价 2市价
-      order.role   = MARKET_ROLE_TAKER;            //订单类型，1挂单 2吃单
-      order.price  = price;                        //订单交易价格
-      order.amount = amount;                       //订单交易数量
-      order.min_amount = 2;                        //订单最小成交数量
-      order.taker_fee_rate = 1000;                 //吃单的手续费率
-      order.maker_fee_rate = 1000;                 //挂单的手续费率
-      order.left           = amount;               //剩余多少数量未成交
-      order.freeze         = 0;                                //冻结的stock或者money
-      order.deal_fee       = 0;                                //累计的交易手续费
-      order.deal_stock     = 0;                                //累计的交易sotck数量
-      order.deal_money     = 0;                                //累计的交易money
-      order.source         = source;                           //备注信息，订单来源
-      
-      order.vec_deal.emplace_back(
-                side_to_uint(side),
-                deal_order_id,
-                "zhouhao"_n,
-                price,
-                amount,
-                0,
-                0,
-                0,
-                0,
-                source
-      );                   
-      
+   check(mk_it->side!=side_to_uint(side),ERR_ORDER_SIDE_SAME);
 
+
+
+
+
+   std::string scope = market + MARKET_ROLE_TAKER_STR + side;
+   transform(scope.begin(),scope.end(),scope.begin(),::tolower);
+  
+   order_index_t tk_orders(_self, name{scope}.value);
+
+   auto tk_side = side_to_uint(side);
+   uint64_t tk_order_id = tk_orders.available_primary_key();
+   uint64_t deal_id = 0;
+
+
+   tk_orders.emplace(user, [&](order &order) {
+      order.id             = tk_order_id ;
+      order.user           = user;                                        //订单所属用户，注意是name类型
+      order.ctime          = current_time_point();                        //订单创建时间，精确到微秒
+      order.utime          = order.ctime;                                 //订单更新时间，精确到微秒
+      order.status         = ORDER_STATUS_EXCHANGING;                     //订单状态，吃单和挂单的状态不同
+      order.side           = tk_side;                                     //买卖类型，1卖 2买
+      order.type           = MARKET_ORDER_TYPE_LIMIT;                     //订单类型，1限价 2市价
+      order.role           = MARKET_ROLE_TAKER;                    //订单类型，1挂单 2吃单
+      order.price          = price;                                       //订单交易价格
+      order.amount         = amount;                                      //订单交易数量
+      order.min_amount     = 2;                                           //订单最小成交数量,默认是2
+      order.taker_fee_rate = 1000;                                        //吃单的手续费率
+      order.maker_fee_rate = 1000;                                        //挂单的手续费率
+      order.left           = amount;                                      //剩余多少数量未成交
+      order.freeze         = 0;                                           //冻结的stock或者money
+      order.deal_fee       = 0;                                           //累计的交易手续费
+      order.deal_stock     = 0;                                           //累计的交易sotck数量
+      order.deal_money     = 0;                                           //累计的交易money
+      order.source         = source;                                      //备注信息，订单来源
+
+      std::string sc(market);
+      transform(sc.begin(),sc.end(),sc.begin(),::toupper);
+
+
+      deal_id = adddeal( user,
+                           tk_side,
+                           tk_order_id,
+                           user,
+                           mk_order_id,
+                           mk_user,
+                           price,
+                           amount,
+                           0,
+                           0,
+                           DEAL_STATUS_CREATED,
+                           symbol_code{sc},
+                           ""
+                        );
+
+       
+       order.vec_deal.emplace_back(deal_id);
+
+   });
+
+   mk_orders.modify(mk_it,user,[&deal_id](order& o){
+      o.vec_deal.emplace_back(deal_id);
+      o.source.append("|").append("被吃单");
+      o.utime  =current_time_point();
+      o.status = ORDER_STATUS_EXCHANGING;
+   });
+     
+}
+
+
+ACTION otcexchange::newmarket(const std::string &stock,
+                              const std::string &money,
+                              uint8_t stock_prec,
+                              uint8_t money_prec,
+                              uint64_t min_amount)
+{
+
+   require_auth(get_self()); //必须要求是合约账号的权限
+
+   market_index_t markets(get_self(), get_self().value); //table是合约范围内的
+
+   auto pair = std::move(stock + money);
+
+   auto it = markets.find(symbol_code(pair).raw());
+
+   check(it == markets.end(), pair + PAIR_EXIST_STR);
+
+   markets.emplace(_self, [&](market &m) {
+      m.pair = symbol_code(pair);
+      m.stock = stock;
+      m.money = money;
+      m.stock_prec = stock_prec;
+      m.money_prec = money_prec;
+      m.fee_prec = stock_prec;
+      m.min_amount = min_amount;
+      m.status =  MARKET_STATUS_ON;
+      m.ctime = time_point_sec(current_time_point().sec_since_epoch());
+      m.utime = time_point_sec(current_time_point().sec_since_epoch());
    });
 }
 
-
-
-ACTION otcexchange::orderbook(const std::string& market,const std::string& role,const std::string& side)
+ACTION otcexchange::closemarket(const std::string &stock,
+                                const std::string &money)
 {
-   check( (role==MARKET_ROLE_TAKER_STR      || role==MARKET_ROLE_MAKER_STR),      ROLE_INVALID_STR);
-   check((side==MARKET_ORDER_SIDE_ASK_STR   || side==MARKET_ORDER_SIDE_BID_STR), SIDE_INVALID_STR);
+   require_auth(_self);                                  //必须要求是合约账号的权限
+   market_index_t markets(get_self(), get_self().value); //table是合约范围内的
 
-    //要注意name类型的长度限制
-   std::string scope=market+MARKET_ROLE_MAKER_STR+side;
-   order_index_t orders(_self,name{scope}.value);
-   auto price_index = orders.get_index<"byprice"_n>();
-   auto itr = price_index.begin();
-   while (itr!=price_index.end())
+   auto pair = std::move(stock + money);
+
+   auto it = markets.find(symbol_code(pair).raw());
+
+   check(it != markets.end(), pair + PAIR_NOT_EXIST_STR);
+   if (it->status !=  MARKET_STATUS_OFF)
    {
-      ++itr;
-   }
-   
-}
-
-
-ACTION otcexchange::newmarket(const std::string& stock,
-                              const std::string& money,
-                              uint8_t stock_prec, 
-                              uint8_t money_prec, 
-                              uint64_t min_amount
-                        )
-{
-
-   require_auth(_self);//必须要求是合约账号的权限
-   
-   init_otc();
-   
-   auto state = sg_markets.get();
-   
-   market one(stock,money,stock_prec,money_prec,min_amount);
-  
-   state.map_markets.emplace(stock+money,one);
-
-   state.set_titles.emplace(stock+money);
-   
-   sg_markets.set(state,_self);
-   
-
-
-}
-
-
-ACTION otcexchange::closemarket(const std::string& stock,
-                                const std::string& money)
-{
-   require_auth(_self);//必须要求是合约账号的权限
-   init_otc();
-   auto state =sg_markets.get();
-   std::string pair(stock+money);
-
-   auto it = state.map_markets.find(pair);
-   check(it!=state.map_markets.end(),pair+"not exist!");
-   if(it->second.status!=MARKET_STATUS::MARKET_STATUS_OFF){
-      it->second.status=MARKET_STATUS::MARKET_STATUS_OFF;
-      state.set_titles.erase(pair);
-      sg_markets.set(state,_self);
-
-   }
-   
-
-
-   
-}
-
-ACTION otcexchange::openmarket(const std::string& stock,
-                               const std::string& money)
-{
-   require_auth(_self);//必须要求是合约账号的权限
+      markets.modify(it, _self, [](market &m) { 
+         m.status =  MARKET_STATUS_OFF; 
+         m.utime = time_point_sec(current_time_point().sec_since_epoch());
+      });
       
-   init_otc();
-   auto state =sg_markets.get();
-   std::string pair(stock+money);
+   }
+}
 
-   auto it = state.map_markets.find(pair);
-   check(it!=state.map_markets.end(),pair+"not exist!");
-   if(it->second.status!=MARKET_STATUS::MARKET_STATUS_ON){
-      it->second.status=MARKET_STATUS::MARKET_STATUS_ON;
-      state.set_titles.emplace(pair);
-      sg_markets.set(state,_self);
+ACTION otcexchange::openmarket(const std::string &stock,
+                               const std::string &money)
+{
+   require_auth(_self);                                  //必须要求是合约账号的权限
+   market_index_t markets(get_self(), get_self().value); //table是合约范围内的
+
+   auto pair = std::move(stock + money);
+
+   auto it = markets.find(symbol_code(pair).raw());
+
+   check(it != markets.end(), pair + PAIR_NOT_EXIST_STR);
+   if (it->status !=  MARKET_STATUS_ON)
+   {
+      markets.modify(it, _self, [](market &m) { 
+         m.status =  MARKET_STATUS_ON; 
+         m.utime = time_point_sec(current_time_point().sec_since_epoch());
+      });
+      
    }
 }
 
 
-
-ACTION otcexchange::getmarkets(){
-   init_otc();
-   auto state =sg_markets.get();
-   nlohmann::json j;
-   j["markets"] = state.map_markets;
-   j["pairs"]   = state.set_titles;
-   print(j.dump(),"\n");
-
-
-}
-
-ACTION otcexchange::(const std::string& stock,
-                     const std::string& money){
-   init_otc();
-   auto state =sg_markets.get();
-   nlohmann::json j;
-   j["markets"] = state.map_markets;
-   j["pairs"]   = state.set_titles;
-   print(j.dump(),"\n");
-
-
-}
-
-
-
-ACTION otcexchange::removespots(){
-   if(singleton_otc.exists()){
-   
-     sg_markets.remove();
-   }else{
-      print("singleton is empty!,why???\n");
+ACTION otcexchange::rmmarkets()
+{
+  
+   require_auth(_self);                                  //必须要求是合约账号的权限
+   market_index_t markets(get_self(), get_self().value); //table是合约范围内的
+   auto it = markets.begin();
+   while (it != markets.end())
+   {
+      it = markets.erase(it);
    }
+   print("delete all market finish\n");
 }
 
+ACTION otcexchange::rmmarket(const std::string &stock,
+                             const std::string &money)
+{
+   require_auth(_self);                                  //必须要求是合约账号的权限
+   market_index_t markets(get_self(), get_self().value); //table是合约范围内的
 
+   auto pair = std::move(stock + money);
 
+   auto it = markets.find(symbol_code(pair).raw());
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+   check(it != markets.end(), pair + PAIR_NOT_EXIST_STR);
+   markets.erase(it);
+   print("delete one market finish\n");
+}
 
 /*
 币币交易

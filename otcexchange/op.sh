@@ -62,3 +62,76 @@ cc get table otcexchange otcchange otc
 cc push action otcexchange createspot '["SYS","CNY",4,4,1]' -p zhouhao
 cc push action otcexchange removespots '[]' -p zhouhao //移除数据
 cc push action otcexchange getspots '[]' -p zhouhao
+
+
+
+cc push action otc newmarket '["ADX","CNY",4,2,4]' -p otc
+cc push action otc openmarket '["ADX","CNY"]' -p otc
+cc push action otc rmmarket '[]' -p otc
+
+
+cc push action otc putmkorder '["ADXCNY","ask","zhouhao",200,100,50,100,"请提供银行卡6日流水"]' -p zhouhao
+cc push action otc putmkorder '["adxcny","bid","maker",10,100,50,100,"请提供银行卡6日流水"]' -p maker
+
+
+cc push action otc cancelorder '["adxcny","bid","mk","zhouhao",0]' -p otc
+
+
+
+cc push action otc puttkorder '["adxcny","bid","zhouhao",10,100,0,"我来买币"]' -p zhouhao
+
+cc get table otc adxcnymkask orders --key-type i64 --index 3 
+
+/*
+{
+  "rows": [{
+      "id": 0,
+      "user": "maker",
+      "ctime": "2020-09-10T08:26:32.000",
+      "utime": "2020-09-10T08:26:32.000",
+      "status": 1,
+      "side": 1,
+      "type": 1,
+      "role": 1,
+      "price": 10,
+      "amount": 100,
+      "min_amount": 50,
+      "max_amount": 100,
+      "taker_fee_rate": 1000,
+      "maker_fee_rate": 1000,
+      "left": 100,
+      "freeze": 0,
+      "deal_fee": 0,
+      "deal_stock": 0,
+      "deal_money": 0,
+      "source": "请提供银行卡6日流水",
+      "vec_deal": []
+    },{
+      "id": 1,
+      "user": "maker",
+      "ctime": "2020-09-10T08:31:15.000",
+      "utime": "2020-09-10T08:31:15.000",
+      "status": 1,
+      "side": 1,
+      "type": 1,
+      "role": 1,
+      "price": 10,
+      "amount": 100,
+      "min_amount": 50,
+      "max_amount": 100,
+      "taker_fee_rate": 1000,
+      "maker_fee_rate": 1000,
+      "left": 100,
+      "freeze": 0,
+      "deal_fee": 0,
+      "deal_stock": 0,
+      "deal_money": 0,
+      "source": "请提供银行卡6日流水",
+      "vec_deal": []
+    }
+  ],
+  "more": false,
+  "next_key": ""
+}
+*/
+

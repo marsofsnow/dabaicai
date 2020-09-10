@@ -43,3 +43,30 @@ while(itr_besthistory != besthistory_table.rend()){
 }
 */
 
+
+
+/*
+
+using map_market_t  =  std::map<std::string,market>;
+using set_title_t   =  std::set<std::string>; //stock money pair
+
+TABLE  markets{
+    map_market_t map_markets;
+    set_title_t  set_titles;
+    EOSLIB_SERIALIZE( markets, ( map_markets)(set_titles) )
+};
+using singleton_markets_t  = singleton< "markets"_n,markets>;
+singleton_markets_t sg_markets; //定义了单例类,整个
+
+static const name sg_markets_scope;
+
+
+
+//初始化单例
+inline void init_otc(){
+    if(!sg_markets.exists()){
+    sg_markets.get_or_create(_self,markets());
+    }
+}
+*/
+
