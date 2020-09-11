@@ -23,6 +23,8 @@ ACTION otcexchange::putmkorder(const std::string &market,
                                const std::string &source)
 {
    require_auth(user);
+   check(price>0,ERR_CHECK_PRICE_GREAT_ZERO);
+   check(amount>0,ERR_CHECK_AMOUNT_GREAT_ZERO);
    check((side == MARKET_ORDER_SIDE_ASK_STR || side == MARKET_ORDER_SIDE_BID_STR), SIDE_INVALID_STR);
    
 
@@ -72,10 +74,17 @@ ACTION otcexchange::puttkorder(const std::string &market,
 
 {
    //cc push action otc puttkorder '["adxcny","bid","zhouhao",10,100,0,"我来买币"]' -p zhouhao
-   require_auth(user);
+   //require 吃单方的权限
+   require_auth(user); 
+   check(price>0,ERR_CHECK_PRICE_GREAT_ZERO);
+   check(amount>0,ERR_CHECK_AMOUNT_GREAT_ZERO);
+
+
+
+   //校验side是否合法
    check((side == MARKET_ORDER_SIDE_ASK_STR || side == MARKET_ORDER_SIDE_BID_STR), SIDE_INVALID_STR);
 
-   //1.找到对手方订单的消息
+   //1.找到对手方订单的买卖的方向
    std::string mk_side("");
    if(side==MARKET_ORDER_SIDE_ASK_STR){
       mk_side = MARKET_ORDER_SIDE_BID_STR;
@@ -86,14 +95,36 @@ ACTION otcexchange::puttkorder(const std::string &market,
    
 
    std::string scope_maker = market + MARKET_ROLE_MAKER_STR + mk_side;
-   transform(scope_maker.begin(),scope_maker.end(),scope_maker.begin(),::tolower);
+   transform(scope_maker.begin(),scope_maker.end(),scope_maker.begin(),::tolower); //scope要求是小写
   
 
    order_index_t mk_orders(_self, name{scope_maker}.value);
+   //要求挂单必须存在
    auto mk_it = mk_orders.require_find(mk_order_id, MAKER_ORDER_NOR_EXIST_STR);
+
+   //获取挂单的用户
    const auto& mk_user= mk_it->user; 
 
-   check(mk_it->side!=side_to_uint(side),ERR_ORDER_SIDE_SAME);
+   //必须不是自成交
+   check(mk_user!=user,ERR_FORBID_SELF_EXCHANGE);
+
+
+   auto tk_side = side_to_uint(side);
+
+   //判断数量是不是合法
+   auto surplus=mk_it->left-mk_it->freeze;
+   if(tk_side==MARKET_ORDER_SIDE_BID){ //我是买币方,对手方为卖币,看卖币方够不够
+      check(amount<=surplus,ERR_NOT_ENOUGH_TOKEN_TO_SELL);
+   }else{
+      //我是卖币方,看我是不是还有币可卖,如果有,则直接冻结,这里发送一个内联调用action,如果执行成功，就继续，失败，就不往下走
+   }
+
+   
+
+
+
+
+   //-------------------taker order------------------
 
 
 
@@ -104,7 +135,7 @@ ACTION otcexchange::puttkorder(const std::string &market,
   
    order_index_t tk_orders(_self, name{scope}.value);
 
-   auto tk_side = side_to_uint(side);
+   
    uint64_t tk_order_id = tk_orders.available_primary_key();
    uint64_t deal_id = 0;
 
@@ -117,13 +148,13 @@ ACTION otcexchange::puttkorder(const std::string &market,
       order.status         = ORDER_STATUS_EXCHANGING;                     //订单状态，吃单和挂单的状态不同
       order.side           = tk_side;                                     //买卖类型，1卖 2买
       order.type           = MARKET_ORDER_TYPE_LIMIT;                     //订单类型，1限价 2市价
-      order.role           = MARKET_ROLE_TAKER;                    //订单类型，1挂单 2吃单
+      order.role           = MARKET_ROLE_TAKER;                           //订单类型，1挂单 2吃单
       order.price          = price;                                       //订单交易价格
       order.amount         = amount;                                      //订单交易数量
       order.min_amount     = 2;                                           //订单最小成交数量,默认是2
       order.taker_fee_rate = 1000;                                        //吃单的手续费率
       order.maker_fee_rate = 1000;                                        //挂单的手续费率
-      order.left           = amount;                                      //剩余多少数量未成交
+      order.left           = 0;                                           //剩余多少数量未成交，全部吃完,
       order.freeze         = 0;                                           //冻结的stock或者money
       order.deal_fee       = 0;                                           //累计的交易手续费
       order.deal_stock     = 0;                                           //累计的交易sotck数量
@@ -132,6 +163,10 @@ ACTION otcexchange::puttkorder(const std::string &market,
 
       std::string sc(market);
       transform(sc.begin(),sc.end(),sc.begin(),::toupper);
+
+      
+      
+
 
 
       deal_id = adddeal( user,
@@ -154,11 +189,16 @@ ACTION otcexchange::puttkorder(const std::string &market,
 
    });
 
-   mk_orders.modify(mk_it,user,[&deal_id](order& o){
+   mk_orders.modify(mk_it,user,[&deal_id,&amount,&tk_side](order& o){
       o.vec_deal.emplace_back(deal_id);
       o.source.append("|").append("被吃单");
       o.utime  =current_time_point();
       o.status = ORDER_STATUS_EXCHANGING;
+      o.left   = o.left-amount;
+      if(tk_side==MARKET_ORDER_SIDE_BID){
+         //mk是卖币方
+         o.freeze = o.freeze+amount;//o.freeze是在处于交易中的卖的币，正在等待对方法币支付
+      }
    });
      
 }

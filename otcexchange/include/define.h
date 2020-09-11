@@ -62,6 +62,11 @@
 #define ERR_RM_ORDER_NOT_BELONG_TO         " not can cancel other user order"
 #define ERR_ORDER_CANCELED                 " order has be canceled"
 #define ERR_ORDER_SIDE_SAME                " order side is same"
+#define ERR_FORBID_SELF_EXCHANGE           " forbid self exchange"
+#define ERR_NOT_ENOUGH_TOKEN_TO_SELL       " counterparty not enough token to sell"
+#define ERR_CHECK_PRICE_GREAT_ZERO         " price  must > 0"
+#define ERR_CHECK_AMOUNT_GREAT_ZERO        " amount must > 0"
+#define ERR_CHECK_FORBIN_CANCEL_SELL_ORDER " forbid cancel ask order"
 
 
 

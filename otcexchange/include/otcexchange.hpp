@@ -278,7 +278,7 @@ CONTRACT otcexchange : public contract {
          uint64_t      taker_fee_rate;              //吃单的手续费率
          uint64_t      maker_fee_rate;              //挂单的手续费率
          uint64_t      left;                        //剩余多少数量未成交
-         uint64_t      freeze;                      //冻结的stock或者money,处于正在交易中
+         uint64_t      freeze;                      //冻结的stock或者money,处于正在交易中,只有卖币挂单才有值
          uint64_t      deal_fee;                    //累计的交易手续费
          uint64_t      deal_stock;                  //累计的交易sotck数量
          uint64_t      deal_money;                  //累计的交易money
@@ -392,17 +392,29 @@ CONTRACT otcexchange : public contract {
 
          check(it->status!=ORDER_STATUS_MANU_CANCEL,ERR_ORDER_CANCELED);
 
+         //取消订单
+
+         //禁止取消卖单，比如
+         check(side!=MARKET_ORDER_SIDE_ASK_STR,ERR_CHECK_FORBIN_CANCEL_SELL_ORDER);
+
+
+
+
+
+
          if(
             (role==MARKET_ROLE_MAKER_STR && side ==MARKET_ORDER_SIDE_ASK_STR) ||
             (role==MARKET_ROLE_TAKER_STR && side ==MARKET_ORDER_SIDE_ASK_STR)
          ){
 
          }else{
-            check(user==it->user,ERR_CANCEL_ORDER_NOT_BELONG_TO); //只能取消自己的订单
-            orders.modify(it,user,[](order& o){
-               o.status = ORDER_STATUS_MANU_CANCEL;
-            });
+            
          }
+
+         check(user==it->user,ERR_CANCEL_ORDER_NOT_BELONG_TO); //只能取消自己的订单
+         orders.modify(it,user,[](order& o){
+            o.status = ORDER_STATUS_MANU_CANCEL;
+         });
          
          
 
