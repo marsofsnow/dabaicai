@@ -23,7 +23,7 @@ Makefile
 compile_commands.json
 moc_*
 *.moc
-
+!cc
 !genesis.json
 hardfork.hpp
 tutorials/bios-boot-tutorial/nodes
