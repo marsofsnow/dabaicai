@@ -1,0 +1,188 @@
+
+
+
+
+
+[
+    [
+        "EOS54r5BTHheF3Dzss8mqedFJeHPwL83ha2TgFq8THG3aCoFz4SCG",
+        "5KYoFyDQjaqGtB7xLxta6PYzvdX4rvhudifdaq3DzogonXJPtLY"
+    ],
+    [
+        "EOS5BGsTksjoPuGrpTQGNDAD3wTvUoD8tioo4KgRjccfwEpF7HZzw",
+        "5KXzEgnjmsCTD8c6wPg3M24vF4SCNnJJQcpuperu7mS6hETrLv1"
+    ],
+    [
+        "EOS5CXYetxpcMwkpTc2DaL3iurGZUPHoAKXg1QZdLrwF15JYRYUHY",
+        "5JqVhpCGS38iqo55BikWsnNcvKRQYK6be6uRvcKKsBtAWbMVvKC"
+    ],
+    [
+        "EOS5kRFTVqLMk8Cc5oTzdriN2hnat87AsmmujgYZg7rWGG1MJkJFW",
+        "5JFFhaWdckFjXqDfUw2hGj3Ht4W1KX9BeX22MfJ8EmG23QcV5Es"
+    ],
+
+
+
+cc system newaccount eosio --transfer accountnum11 EOS5BGsTksjoPuGrpTQGNDAD3wTvUoD8tioo4KgRjccfwEpF7HZzw --stake-net "100000000.0000 SYS" --stake-cpu "100000000.0000 SYS" --buy-ram-kbytes 8192
+cc system regproducer accountnum11 EOS5BGsTksjoPuGrpTQGNDAD3wTvUoD8tioo4KgRjccfwEpF7HZzw http://accountnum11.com 
+
+
+cc system newaccount eosio --transfer accountnum12 EOS5CXYetxpcMwkpTc2DaL3iurGZUPHoAKXg1QZdLrwF15JYRYUHY --stake-net "100000000.0000 SYS" --stake-cpu "100000000.0000 SYS" --buy-ram-kbytes 8192
+cc system regproducer accountnum12 EOS5CXYetxpcMwkpTc2DaL3iurGZUPHoAKXg1QZdLrwF15JYRYUHY http://accountnum12.com 
+
+
+cc system newaccount eosio --transfer accountnum13 EOS5kRFTVqLMk8Cc5oTzdriN2hnat87AsmmujgYZg7rWGG1MJkJFW --stake-net "100000000.0000 SYS" --stake-cpu "100000000.0000 SYS" --buy-ram-kbytes 8192
+cc system regproducer accountnum13 EOS5kRFTVqLMk8Cc5oTzdriN2hnat87AsmmujgYZg7rWGG1MJkJFW http://accountnum13.com 
+
+
+cc system voteproducer prods accountnum11 accountnum11 accountnum12 accountnum13
+
+
+
+
+
+
+
+
+
+
+
+    [
+        "EOS5ts4iSB1vNd32U8JVuqB1NAy7y11wxc73DgWVkARjC1QyGyDso",
+        "5HzSNT49E98u83YaANLeUJxvXNUFKeLwuPvchoyXaJCVqKrXzPK"
+    ],
+
+
+
+    [
+        "EOS5ua6JnEAjU3JsQnHxN8soUPEyEor1F8fjqG1cLMS9ijaEdPAPF",
+        "5JaqgKMrjYvhcGVG5iEWekWPSzYtobAUmSYehtFvTk7K3uXL5Eh"
+    ],
+    [
+        "EOS5yRKKkJ5FLSpipqLZ5jy1bi8NPHVoz5gLn7FmBYhcaHeJK1VGp",
+        "5HwzgYigYtb8spnn1vuwfov2C5h2eLpWcentTPAXRFf1hfUWRmV"
+    ],
+
+
+    [
+        "EOS5zePLBASvyUhxz2cxR6aRjGksp7f96YwovQiHKM9JLFDuqKmcu",
+        "5KH8bMB9KAreAdfy889KgnX3EjaXVNvoiVTbnKfnMf6Rbg3qZxy"
+    ],
+    [
+        "EOS66GwiAD222wacAr9BuYUMuDUg7g9aGnd6RJq6j9AickraqcUtr",
+        "5HrSZW4qJJQ7iMwkK6eGAdorfGkadfBqxFszhmzZLRmTKoYDkLB"
+    ],
+    [
+        "EOS6Miaq2bd5erndswAjgotLBLvd29bRTvD3rpL9VNy6aHMhSpBeN",
+        "5Hpwqt4bz88wdbKF8p92k5ykFYeMMs8stdLtryL8qmqfiVK8fta"
+    ],
+    [
+        "EOS6my3Wzkh2M4eQtWKu4RsbFWAvZJ56G7CyfXKTfhpqRhvuSm9zi",
+        "5HyuQeKCCkoBtaiX947y5K85WnUJTyhKtowvokibRPuv62TwNvw"
+    ],
+    [
+        "EOS6noQW44dc7z9XcXYMWWMP6iUsSVhiqUNfWdaKgadVD31XDemLu",
+        "5JPPhJrh4YamGuvmbrK2sVzfWdV8pEQPALEKoAHrT2s15TdruPD"
+    ],
+    [
+        "EOS78M4SkcsiNFybBb4qEBTUMH4YKXBtfWmLgJaWJ3ZwR41zKCYWm",
+        "5Jvsb3PeTvkYZjPw1gSMzvF3DWsyfJVbNzdAyA2keGEQ5Pd3X6u"
+    ],
+    [
+        "EOS7H4L5s6AQirFGsAuGTLwsTHNt38E6bpXgEtCDxNJZ4D3Qcgn35",
+        "5KWCNgLM1YxptmWYJoihgCG1vdJpbr6reWNmj76DE3oSQbwEv2U"
+    ],
+    [
+        "EOS7LKMSeTUxRmRfSh1a1KfANQAXJUzCwKELL924AaPDYpj7w7XfQ",
+        "5K2D3kshkYQSWnxk9jcUjJo3NcxPTCvSsBHy8zWw9q8BAJ3Vepk"
+    ],
+    [
+        "EOS7Vz2znVhkvUY2oWGeqjK1HLkbCHfbh1BzFzBzKE6uMbTGQ5a5D",
+        "5Jz8NfjHUD1H5qGWuLs4BmFgG7VprnLr7JPrZ5gn27wzzhp4q4g"
+    ],
+    [
+        "EOS7WfXzCsEPH4KC5uztj2YivuGSfvwR5RDz7PbzxroCjEp1acnzQ",
+        "5KhdVLNP7t8XavdgC8YDJKwwUF9h2mNk6G4ViDR5k2L9WcL48HB"
+    ],
+    [
+        "EOS7cPAJRgV9UMDyoAVHkiy1YaE9rsYB3sDd6Smqub8taGHs1KFdq",
+        "5JAsa3SxDJQbkCE1G3UuTrT7dyBZZmcBA27HmUMQqeMjJFaS6J6"
+    ],
+    [
+        "EOS7cVaaD3gSrH1EiwPLA8eEXyF9ecbrxJKudpSJr1XScX2TvpVeS",
+        "5K4auvTFrMbar1ub3jSuaYSkqioEyj1NLibup7qys88npPRvspH"
+    ],
+    [
+        "EOS7fxVCR5tF9NLbNZZKnWeuYNZYx2iuErmJGRteX8L4eWiXS3kbr",
+        "5Hv8NaYnHgQjkWx2cZYikBbKuDuv6omSPbUjtnDM5bPQGfny3KH"
+    ],
+    [
+        "EOS7o7KGzFNvPdhNpVZCk4M9eUs4Pn51D9ZjiAtKMk8HXCmfL6KJe",
+        "5K6mwmNEXqxkzCBPERp4ZwASb7mT8B7AUFVQJv9ThdyRBUUEt4b"
+    ],
+    [
+        "EOS7ucA8wmHNcUHtzNUaqN5pmn1wCPAuKhW7F4JNEEtkwWSBQevPU",
+        "5Hykp8tUE9MvN7Rp8uzS71DwKr17KNFcvxZJAL2yy8bH5XeTsds"
+    ],
+    [
+        "EOS7xv8WgKR1q6q5XV9iaB9UDCVfdQTqEkTFPCtesmzc63WjXs3r2",
+        "5JGg854uYrVNPXki9Qf2Ddq324fJjxEVrVFjC7ChS5FChPJ8CmK"
+    ],
+    [
+        "EOS8AXK1DgSCF76gh26cjEUnYFfPNDMDeJp5bnyX2dQnC2Le3v1UE",
+        "5JkxpmytZSuTav2H1t4D5hXSH4rAhLS7KCxbC7pxE8tqambEK6Q"
+    ],
+    [
+        "EOS8B4kcACzXMWX4YQxZzBZAmqEEhGE9N4kT1duR2HSS6ZXVcVUcA",
+        "5JbNKEG25M3LzzXv5DdrHpvdiStnua5vPBqF38YGNce2aPQEKDg"
+    ],
+    [
+        "EOS8TzR8nhJQ6a5jb2BbpSgLnUoi2hARustUiP2GvixmGYzJuquCF",
+        "5JJ9WzBSxSaoP3QrNThygYocX9J3tQnexNvigUS1hXgryDGrnBn"
+    ],
+    [
+        "EOS8Wm3bUVEESUy8W4oo8hYYt1cSh9GwMzxa1veTAV9P9cgLZ3eM2",
+        "5Jmh1gnkMuzt45oexzbShfXidTg9A9rusYS9c1wSUDiaJKzHtkF"
+    ],
+    [
+        "EOS8ZMTy22rYjiV3W3uHJiYiBKR5eabJ3u7Fa2oAtf3tW4CyM9EAz",
+        "5JQCMrXs7aMn4TbnFVq548Yyjo5MHmPUBsX5rdRn3yxQABcKXNg"
+    ],
+    [
+        "EOS8fGXEHgudmRyzhRHCtMFiMxunVjW3vxnf1ek2xGHjP7rCrza8v",
+        "5JE36Yec3kFc1BSbmizEyyvuUCdKBJ3ZRTujuCy7YF39BCPcH7p"
+    ]
+]
+
+
+
+
+cc push action eosio updateauth '{"account": "eosio", "permission": "owner", "parent": "", "auth": {"threshold": 1, "keys": [], "waits": [], "accounts": [{"weight": 1, "permission": {"actor": "eosio.prods", "permission": "active"}}]}}' -p eosio@owner
+cc push action eosio updateauth '{"account": "eosio", "permission": "active", "parent": "owner", "auth": {"threshold": 1, "keys": [], "waits": [], "accounts": [{"weight": 1, "permission": {"actor": "eosio.prods", "permission": "active"}}]}}' -p eosio@active
+
+cc push action eosio updateauth '{"account": "eosio.bpay", "permission": "owner", "parent": "", "auth": {"threshold": 1, "keys": [], "waits": [], "accounts": [{"weight": 1, "permission": {"actor": "eosio", "permission": "active"}}]}}' -p eosio.bpay@owner
+cc push action eosio updateauth '{"account": "eosio.bpay", "permission": "active", "parent": "owner", "auth": {"threshold": 1, "keys": [], "waits": [], "accounts": [{"weight": 1, "permission": {"actor": "eosio", "permission": "active"}}]}}' -p eosio.bpay@active
+
+cc push action eosio updateauth '{"account": "eosio.msig", "permission": "owner", "parent": "", "auth": {"threshold": 1, "keys": [], "waits": [], "accounts": [{"weight": 1, "permission": {"actor": "eosio", "permission": "active"}}]}}' -p eosio.msig@owner
+cc push action eosio updateauth '{"account": "eosio.msig", "permission": "active", "parent": "owner", "auth": {"threshold": 1, "keys": [], "waits": [], "accounts": [{"weight": 1, "permission": {"actor": "eosio", "permission": "active"}}]}}' -p eosio.msig@active
+
+cc push action eosio updateauth '{"account": "eosio.names", "permission": "owner", "parent": "", "auth": {"threshold": 1, "keys": [], "waits": [], "accounts": [{"weight": 1, "permission": {"actor": "eosio", "permission": "active"}}]}}' -p eosio.names@owner
+cc push action eosio updateauth '{"account": "eosio.names", "permission": "active", "parent": "owner", "auth": {"threshold": 1, "keys": [], "waits": [], "accounts": [{"weight": 1, "permission": {"actor": "eosio", "permission": "active"}}]}}' -p eosio.names@active
+
+cc push action eosio updateauth '{"account": "eosio.ram", "permission": "owner", "parent": "", "auth": {"threshold": 1, "keys": [], "waits": [], "accounts": [{"weight": 1, "permission": {"actor": "eosio", "permission": "active"}}]}}' -p eosio.ram@owner
+cc push action eosio updateauth '{"account": "eosio.ram", "permission": "active", "parent": "owner", "auth": {"threshold": 1, "keys": [], "waits": [], "accounts": [{"weight": 1, "permission": {"actor": "eosio", "permission": "active"}}]}}' -p eosio.ram@active
+
+cc push action eosio updateauth '{"account": "eosio.ramfee", "permission": "owner", "parent": "", "auth": {"threshold": 1, "keys": [], "waits": [], "accounts": [{"weight": 1, "permission": {"actor": "eosio", "permission": "active"}}]}}' -p eosio.ramfee@owner
+cc push action eosio updateauth '{"account": "eosio.ramfee", "permission": "active", "parent": "owner", "auth": {"threshold": 1, "keys": [], "waits": [], "accounts": [{"weight": 1, "permission": {"actor": "eosio", "permission": "active"}}]}}' -p eosio.ramfee@active
+
+cc push action eosio updateauth '{"account": "eosio.saving", "permission": "owner", "parent": "", "auth": {"threshold": 1, "keys": [], "waits": [], "accounts": [{"weight": 1, "permission": {"actor": "eosio", "permission": "active"}}]}}' -p eosio.saving@owner
+cc push action eosio updateauth '{"account": "eosio.saving", "permission": "active", "parent": "owner", "auth": {"threshold": 1, "keys": [], "waits": [], "accounts": [{"weight": 1, "permission": {"actor": "eosio", "permission": "active"}}]}}' -p eosio.saving@active
+
+cc push action eosio updateauth '{"account": "eosio.stake", "permission": "owner", "parent": "", "auth": {"threshold": 1, "keys": [], "waits": [], "accounts": [{"weight": 1, "permission": {"actor": "eosio", "permission": "active"}}]}}' -p eosio.stake@owner
+cc push action eosio updateauth '{"account": "eosio.stake", "permission": "active", "parent": "owner", "auth": {"threshold": 1, "keys": [], "waits": [], "accounts": [{"weight": 1, "permission": {"actor": "eosio", "permission": "active"}}]}}' -p eosio.stake@active
+
+cc push action eosio updateauth '{"account": "eosio.token", "permission": "owner", "parent": "", "auth": {"threshold": 1, "keys": [], "waits": [], "accounts": [{"weight": 1, "permission": {"actor": "eosio", "permission": "active"}}]}}' -p eosio.token@owner
+cc push action eosio updateauth '{"account": "eosio.token", "permission": "active", "parent": "owner", "auth": {"threshold": 1, "keys": [], "waits": [], "accounts": [{"weight": 1, "permission": {"actor": "eosio", "permission": "active"}}]}}' -p eosio.token@active
+
+cc push action eosio updateauth '{"account": "eosio.vpay", "permission": "owner", "parent": "", "auth": {"threshold": 1, "keys": [], "waits": [], "accounts": [{"weight": 1, "permission": {"actor": "eosio", "permission": "active"}}]}}' -p eosio.vpay@owner
+cc push action eosio updateauth '{"account": "eosio.vpay", "permission": "active", "parent": "owner", "auth": {"threshold": 1, "keys": [], "waits": [], "accounts": [{"weight": 1, "permission": {"actor": "eosio", "permission": "active"}}]}}' -p eosio.vpay@active
