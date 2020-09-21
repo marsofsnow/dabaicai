@@ -25,7 +25,7 @@ cc create account eosio  eosio.rex    EOS7H4L5s6AQirFGsAuGTLwsTHNt38E6bpXgEtCDxN
 
 #1.10 安装eosio.msig
 cc set contract eosio.token ${HOME}/dabaicai/deploy/cc/contracts1.9/eosio.token/
-cc set contract eosio.msig /home/zh/eosio/cc/contracts1.9/eosio.msig/
+cc set contract eosio.msig  ${HOME}/dabaicai/deploy/cc/contracts1.9/eosio.msig/
 
 #创建数字货币
 cc push action eosio.token create '[ "eosio", "10000000000.0000 SYS" ]' -p eosio.token@active
@@ -36,7 +36,7 @@ curl --request POST \
     --url http://127.0.0.1:18888/v1/producer/schedule_protocol_feature_activations \
     -d '{"protocol_features_to_activate": ["0ec7e080177b2c02b278d5088611686b49d739925a92d9bfcacd7fc6b74053bd"]}'
 
-cc set contract eosio /home/zh/eosio/cc/contracts1.8/eosio.system/ -x 1000
+cc set contract eosio ${HOME}/dabaicai/deploy/cc/contracts1.8/eosio.system/ -x 1000
 
 
 # GET_SENDER
@@ -76,7 +76,7 @@ cc push action eosio activate '["4fca8bd82bbd181e714e283f83e1b45d95ca5af40fb89ad
 cc push action eosio activate '["299dcb6af692324b899b39f16d5a530a33062804e41f09dc97e9f156b4476707"]' -p eosio
 
 
-cc   set contract eosio /home/zh/eosio/cc/contracts1.9/eosio.system/ -x 100
+cc   set contract eosio ${HOME}/dabaicai/deploy/cc/contracts1.9/eosio.system/ -x 100
 
 
 
@@ -133,4 +133,4 @@ cc push action eosio updateauth '{"account": "eosio.vpay", "permission": "active
 
 
 
-cc system newaccount eosio --transfer learn EOS7JAcMoeQC5on734jDcLdctdg8u1XGWXZPf89e1xrYu7cNqvxqk --stake-net "100000000.0000 SYS" --stake-cpu "100000000.0000 SYS" --buy-ram-kbytes 8192
+cc system newaccount eosio --transfer eosio.bpay  EOS5ts4iSB1vNd32U8JVuqB1NAy7y11wxc73DgWVkARjC1QyGyDso --stake-net "100000000.0000 SYS" --stake-cpu "100000000.0000 SYS" --buy-ram-kbytes 8192

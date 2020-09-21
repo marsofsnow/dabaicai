@@ -31,40 +31,24 @@ private:
    //交易对 ADXCNY
    TABLE market
    {
-      symbol_code pair;       //交易对
-      std::string stock = ""; //coin
-      std::string money = ""; //fiat
-      uint8_t stock_prec = 4;
-      uint8_t money_prec = 2;
-      uint8_t fee_prec = 4;
-      uint64_t min_amount = 4;
-      uint8_t status = MARKET_STATUS_ON;
+      symbol_code pair;     //交易对
+      symbol stock;         //coin 需要指定[代币精度,代币符号]
+      symbol money;         //fiat 需要指定[法币精度，法币符合]
+      asset taker_fee_rate; // taker手续费费率
+      asset maker_fee_rate;
+      asset amount_min;                  // 限定的最小交易数量 单位是代币
+      asset amount_max;                  // 限定的最大交易数量  单位是代币
+      asset price_min;                   // 限定的最小交易价格  单位是法币
+      asset price_max;                   // 限定的最大交易价格  单位是法币
+      uint8_t status = MARKET_STATUS_ON; //交易对是否打开交易
+      std::string str_status;
       time_point_sec ctime{current_time_point().sec_since_epoch()};
       time_point_sec utime{current_time_point().sec_since_epoch()};
 
       uint64_t primary_key() const { return pair.raw(); }
-      uint64_t get_secondary_status() const { return status; } // sort by user name，按用户名过滤
+      uint64_t get_secondary_status() const { return status; } // sort by status，按交易对状态过滤
 
-      /*
-         market(const std::string& stock="",
-                const std::string& money="",
-                uint8_t  stock_prec=4, 
-                uint8_t  money_prec=2, 
-                uint64_t min_amount=4):
-                                     pair(stock+money),
-                                     stock(stock),
-                                     money(money),
-                                     stock_prec(stock_prec),
-                                     money_prec(money_prec),
-                                     fee_prec(stock_prec),
-                                     min_amount(min_amount),
-                                     status(MARKET_STATUS::MARKET_STATUS_ON),
-                                     ctime{current_time_point().sec_since_epoch()},
-                                     utime{current_time_point().sec_since_epoch()}
-                                     {}
-         */
-
-      EOSLIB_SERIALIZE(market, (pair)(stock)(money)(stock_prec)(money_prec)(fee_prec)(min_amount)(status)(ctime)(utime))
+      EOSLIB_SERIALIZE(market, (pair)(stock)(money)(taker_fee_rate)(maker_fee_rate)(amount_min)(amount_max)(price_min)(price_max)(status)(str_status)(ctime)(utime))
    };
 
    using market_index_t = multi_index<"markets"_n,
@@ -73,32 +57,34 @@ private:
 
 public:
    //new one  market 操作
-   ACTION newmarket(const std::string &stock,
-                    const std::string &money,
-                    uint8_t stock_prec,
-                    uint8_t money_prec,
-                    uint64_t min_amount);
+   ACTION newmarket(const symbol &stock,
+                    const symbol &money,
+                    asset taker_fee_rate,
+                    asset maker_fee_rate,
+                    asset amount_min,
+                    asset amount_max,
+                    asset price_min,
+                    asset price_max);
 
    //交易对禁止交易
-   ACTION closemarket(const std::string &stock,
-                      const std::string &money);
+   ACTION closemarket(const symbol_code &pair);
 
    //交易对放开交易
-   ACTION openmarket(const std::string &stock,
-                     const std::string &money);
+   ACTION openmarket(const symbol_code &pair);
+
+   ACTION rmmarket(const symbol_code &pair);
 
    //清空所有的交易对
    ACTION rmmarkets();
-   ACTION rmmarket(const std::string &stock,
-                   const std::string &money);
 
    USING_ACTION(otcexchange, newmarket);
    USING_ACTION(otcexchange, closemarket);
    USING_ACTION(otcexchange, openmarket);
-   USING_ACTION(otcexchange, rmmarkets);
    USING_ACTION(otcexchange, rmmarket);
+   USING_ACTION(otcexchange, rmmarkets);
 
    //------------------------define markets end-------------------------------//
+
    //------------------------define deal  begin-------------------------------//
 
 private:

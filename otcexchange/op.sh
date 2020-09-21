@@ -1,10 +1,21 @@
 #1.给帐号创建密钥
 cc wallet create_key -n hopex
 
-#2.创建帐号
-cc system newaccount eosio otcexchange  \
-EOS6xJqGjUeivzmZhNVjojmTNH4uPBb5zpJd2axqGe6o6u5RBmZrE \
+
+#这个命令只是eosio为maker抵押的，token处于抵押状态，不计入用户的余额状态， --transfer说抵押同时将币的所有权转给接收者，但当自己已经有所有权了，不能自己再转给自己
+cc system newaccount eosio --transfer zhouhao  \
 EOS6xJqGjUeivzmZhNVjojmTNH4uPBb5zpJd2axqGe6o6u5RBmZrE  \
+EOS6xJqGjUeivzmZhNVjojmTNH4uPBb5zpJd2axqGe6o6u5RBmZrE  \
+--stake-net "10000.0000 SYS"  \
+--stake-cpu "10000.0000 SYS"  \
+--buy-ram-kbytes 8192
+
+#
+
+#2.创建合约帐号
+cc system newaccount eosio otcexchange  \
+EOS8eeigH6SW5ZJm12rBfBFEGEPAEyKjdahS9ghau1bvDCLWzGCbe \
+EOS8eeigH6SW5ZJm12rBfBFEGEPAEyKjdahS9ghau1bvDCLWzGCbe  \
 --stake-net '50.00 SYS' \
 --stake-cpu '50.00 SYS' \
 --buy-ram-kbytes 10000
@@ -24,13 +35,7 @@ cc system delegatebw otcexchange otcexchange '50.0000 SYS' '500.0000 SYS' -p otc
 
 
 
-#这个命令只是eosio为maker抵押的，token处于抵押状态，不计入用户的余额状态， --transfer说抵押同时将币的所有权转给接收者，但当自己已经有所有权了，不能自己再转给自己
-cc system newaccount eosio --transfer otcexchange  \
-EOS6xJqGjUeivzmZhNVjojmTNH4uPBb5zpJd2axqGe6o6u5RBmZrE  \
-EOS6xJqGjUeivzmZhNVjojmTNH4uPBb5zpJd2axqGe6o6u5RBmZrE  \
---stake-net "10000.0000 SYS"  \
---stake-cpu "10000.0000 SYS"  \
---buy-ram-kbytes 8192
+
 
 #查询
 cc get account  otcexchange
@@ -65,9 +70,19 @@ cc push action otcexchange getspots '[]' -p zhouhao
 
 
 
-cc push action otc newmarket '["ADX","CNY",4,2,4]' -p otc
-cc push action otc openmarket '["ADX","CNY"]' -p otc
-cc push action otc rmmarket '[]' -p otc
+cc push action otcexchange newmarket '["2,ADX","2,CNY","0.1000 ADX","0.1000 ADX","1,ADX","100,ADX","100.00 CNY","1000.00 CNY"]' -p otcexchange
+
+
+
+
+
+
+
+
+
+
+cc push action otcexchange openmarket '["ADX","CNY"]' -p otcexchange
+cc push action otcexchange rmmarket '["ADXCNY"]' -p otcexchange
 
 
 cc push action otc putmkorder '["ADXCNY","ask","zhouhao",200,100,50,100,"请提供银行卡6日流水"]' -p zhouhao
