@@ -1,83 +1,30 @@
-cc  create key --to-console
-Private key: 5KYdgMCMU2M16qLS9bPu1skEd41ZH1T8eL4kkLRpm4aidtt15iF
-Public key: EOS7yfKrraZgMwzHWb3w97d4zDu7idyGRkuRdKAxhxBfuhCY6WVus
-
-cc wallet import --private-key -n zyy
 
 
 
----------------------------
+cc wallet create_key -n hopex
+cc wallet private_keys -n hopex
 
-#1.eosio.bpay
-cc  create key --to-console 
-Private key: 5HyVXKQCx8qAbtEbGHZLeaSkiGRGpaM9xSRSvhxn99du1B1rgDK
-Public key: EOS6x4PM2xXq6UNqinLQCMYUAaBfaBzSuGQGx46UUZHboSHdmQgmF
+cc  create key --to-console  
+cleos wallet import --private-key -n hopex
 
-cc create account eosio eosio.bpay EOS6x4PM2xXq6UNqinLQCMYUAaBfaBzSuGQGx46UUZHboSHdmQgmF
-
-
-
-#2.eosio.msig
-c  create key --to-console 
-Private key: 5JqN2YrTLnRYJqMEMtMt4PKCcbBiP8PhPu1KiLhLsjABaH6NPKw
-Public key: EOS4uc8F8Hjo2HVTpdseztwq7xE6zMYZciFRUXiNcaXp5SJzFDchC
-cc create account eosio eosio.msig EOS4uc8F8Hjo2HVTpdseztwq7xE6zMYZciFRUXiNcaXp5SJzFDchC
-
-
-3.eosio.names
-cc  create key --to-console 
-Private key: 5J2YoiuuifMjGAvXpMiMyRbcnTiRpDNnNdd1PDyv9WW24kqAwrP
-Public key: EOS62rAV9A8X1nD8Un5uGhdmUR7uJDGMQrzaYm9V3ASRoGuPYU3HV
-
-cc create account eosio eosio.names EOS62rAV9A8X1nD8Un5uGhdmUR7uJDGMQrzaYm9V3ASRoGuPYU3HV
+cc create account eosio  eosio.bpay  EOS5ts4iSB1vNd32U8JVuqB1NAy7y11wxc73DgWVkARjC1QyGyDso
+cc create account eosio  eosio.msig  EOS5ua6JnEAjU3JsQnHxN8soUPEyEor1F8fjqG1cLMS9ijaEdPAPF
+cc create account eosio  eosio.names EOS5yRKKkJ5FLSpipqLZ5jy1bi8NPHVoz5gLn7FmBYhcaHeJK1VGp
+cc create account eosio  eosio.ram   EOS5zePLBASvyUhxz2cxR6aRjGksp7f96YwovQiHKM9JLFDuqKmcu
+cc create account eosio  eosio.ramfee EOS66GwiAD222wacAr9BuYUMuDUg7g9aGnd6RJq6j9AickraqcUtr
+cc create account eosio  eosio.saving EOS6Miaq2bd5erndswAjgotLBLvd29bRTvD3rpL9VNy6aHMhSpBeN
+cc create account eosio  eosio.stake  EOS6my3Wzkh2M4eQtWKu4RsbFWAvZJ56G7CyfXKTfhpqRhvuSm9zi
+cc create account eosio  eosio.token  EOS6noQW44dc7z9XcXYMWWMP6iUsSVhiqUNfWdaKgadVD31XDemLu
+cc create account eosio  eosio.vpay   EOS78M4SkcsiNFybBb4qEBTUMH4YKXBtfWmLgJaWJ3ZwR41zKCYWm
+cc create account eosio  eosio.rex    EOS7H4L5s6AQirFGsAuGTLwsTHNt38E6bpXgEtCDxNJZ4D3Qcgn35
 
 
-4.eosio.ram
-cc  create key --to-console 
-Private key: 5JASicy8uwT1bLgqYvgd6uoW3f9jf74TFFKh5DUdEwbkhfT3Ud8
-Public key: EOS5yXHuychDwksa8Ykdz5bpy4oTSnpy37Y67E2sDhdujb5YgNn7c
-cc create account eosio eosio.ram EOS5yXHuychDwksa8Ykdz5bpy4oTSnpy37Y67E2sDhdujb5YgNn7c
 
-
-#5.eosio.ramfee
-cc  create key --to-console 
-Private key: 5JEuGBUQF46LaLRzn5YKg2YLnwnqyP5z5vTPCDtwjkrGLJ9rG1D
-Public key: EOS5oAnggMB9yEVqew2amtuyRnorUFFour8qiJFXmLLmzsrdniD56
-cc create account eosio eosio.ramfee EOS5oAnggMB9yEVqew2amtuyRnorUFFour8qiJFXmLLmzsrdniD56
-
-#6.eosio.saving
-
-cc  create key --to-console 
-Private key: 5KH5HwJovSC9MwmQfi3u4mTw8GPaWeSVyoz7sM3VRZqwcNUuFtr
-Public key: EOS5JwjJNnY2x9WTkvw5hHdmgJRBpmS1ywmMC1HLnnsSRV9XCd1sJ
-cc create account eosio eosio.saving EOS5JwjJNnY2x9WTkvw5hHdmgJRBpmS1ywmMC1HLnnsSRV9XCd1sJ
-
-#7.eosio.stake
-cc  create key --to-console 
-Private key: 5JbMboWKs1APtrkXR36C8mj8t4EhVoL4icUYH368FRFwrBNT4tT
-Public key: EOS7rDAJKG9zcp8zFURhTrTDW5zs2ktXBVN8eAerdLEDSw1esYYyk
-cc create account eosio eosio.stake EOS7rDAJKG9zcp8zFURhTrTDW5zs2ktXBVN8eAerdLEDSw1esYYyk
-
-#8.eosio.token
-cc  create key --to-console 
-Private key: 5J8JVrEaBdbxXs8qufXmqJL8N891iWDt3HMzKWPCeGy5iBaxXxy
-Public key: EOS5pkEJapfQcCrnMHgoGoVEZyxucwa2rTD7jac6cmiGb2hzrrsSg
-
-cc create account eosio eosio.token EOS5pkEJapfQcCrnMHgoGoVEZyxucwa2rTD7jac6cmiGb2hzrrsSg
-
-#9.eosio.vpay
-cc  create key --to-console 
-Private key: 5KgwLZD1AkzgoHWWTDfqCQf7RvmrzuexLmAFoCmvRxi4ouy3ycW
-Public key: EOS6y5QTwJxNKyLQCqEyUFnLT3jvKgLj3q5Jsk1rNkFgMrLBav4aB
-cc create account eosio eosio.vpay EOS6y5QTwJxNKyLQCqEyUFnLT3jvKgLj3q5Jsk1rNkFgMrLBav4aB
-#10.eosio.rex
-Private key: 5JYWoChqTUxwMeVtyYdJii6gKnXtWpkB3ux4M3Wt7P1SLNKmiux
-Public key: EOS7Ph7sdxhUasGFYPzKp46DwD3Sy3Z8Fohxe4su5JQphurVBC27H
-cc create account eosio eosio.rex EOS7Ph7sdxhUasGFYPzKp46DwD3Sy3Z8Fohxe4su5JQphurVBC27H
 
 #1.9 安装eosio.token
-cc set contract eosio.token /home/zh/eosio/cc/contracts1.9/eosio.token/
+
 #1.10 安装eosio.msig
+cc set contract eosio.token ${HOME}/dabaicai/deploy/cc/contracts1.9/eosio.token/
 cc set contract eosio.msig /home/zh/eosio/cc/contracts1.9/eosio.msig/
 
 #创建数字货币
@@ -132,67 +79,25 @@ cc push action eosio activate '["299dcb6af692324b899b39f16d5a530a33062804e41f09d
 cc   set contract eosio /home/zh/eosio/cc/contracts1.9/eosio.system/ -x 100
 
 
+
+
 cc push action eosio setpriv '["eosio.msig", 1]' -p eosio@active
 cc push action eosio init '["0", "4,SYS"]' -p eosio@active
 
 
-cc create key --to-console
-cc create key --to-console
 
---signature-provider EOS8BvSZgN2hDpAuT3gF6htxmG1Zt8jijYk2SR8cWZcpk28Y7GmtL=KEY:5KQ8ZGgYf3w6WJsambh5QzQNZHKwwWD58EcLSKmVX3C9tfNTU8v \
-Private key: 5KQ8ZGgYf3w6WJsambh5QzQNZHKwwWD58EcLSKmVX3C9tfNTU8v
-Public key: EOS8BvSZgN2hDpAuT3gF6htxmG1Zt8jijYk2SR8cWZcpk28Y7GmtL
+cc system newaccount eosio --transfer accountnum11 EOS5BGsTksjoPuGrpTQGNDAD3wTvUoD8tioo4KgRjccfwEpF7HZzw --stake-net "100000000.0000 SYS" --stake-cpu "100000000.0000 SYS" --buy-ram-kbytes 8192
+cc system regproducer accountnum11 EOS5BGsTksjoPuGrpTQGNDAD3wTvUoD8tioo4KgRjccfwEpF7HZzw http://accountnum11.com 
 
-cc wallet import --private-key -n zyy
+cc system newaccount eosio --transfer accountnum12 EOS5CXYetxpcMwkpTc2DaL3iurGZUPHoAKXg1QZdLrwF15JYRYUHY --stake-net "100000000.0000 SYS" --stake-cpu "100000000.0000 SYS" --buy-ram-kbytes 8192
+cc system regproducer accountnum12 EOS5CXYetxpcMwkpTc2DaL3iurGZUPHoAKXg1QZdLrwF15JYRYUHY http://accountnum12.com 
 
-cc system newaccount eosio --transfer accountnum11 EOS8BvSZgN2hDpAuT3gF6htxmG1Zt8jijYk2SR8cWZcpk28Y7GmtL --stake-net "100000000.0000 SYS" --stake-cpu "100000000.0000 SYS" --buy-ram-kbytes 8192
-cc system regproducer accountnum11 EOS8BvSZgN2hDpAuT3gF6htxmG1Zt8jijYk2SR8cWZcpk28Y7GmtL https://accountnum11.com 
-
-
-
-
-
-cc create key --to-console
-Private key: 5K2VZ7NoRXnsT4kAZhe4msGWCJxmd21Fr87KqMYoa91Bshu8hdR
-Public key: EOS5kP5kFHij8BjDJBhFb4ADTgXber76kSKR215Zb2tZDfrnjVfhk
-
---signature-provider EOS5kP5kFHij8BjDJBhFb4ADTgXber76kSKR215Zb2tZDfrnjVfhk=KEY:5K2VZ7NoRXnsT4kAZhe4msGWCJxmd21Fr87KqMYoa91Bshu8hdR \
-
-
-
-
-cc system newaccount eosio --transfer accountnum11 EOS8BvSZgN2hDpAuT3gF6htxmG1Zt8jijYk2SR8cWZcpk28Y7GmtL --stake-net "100000000.0000 SYS" --stake-cpu "100000000.0000 SYS" --buy-ram-kbytes 8192
-cc system regproducer accountnum11 EOS8BvSZgN2hDpAuT3gF6htxmG1Zt8jijYk2SR8cWZcpk28Y7GmtL https://accountnum11.com 
-
-
-cc system newaccount eosio --transfer accountnum12 EOS5kP5kFHij8BjDJBhFb4ADTgXber76kSKR215Zb2tZDfrnjVfhk --stake-net "100000000.0000 SYS" --stake-cpu "100000000.0000 SYS" --buy-ram-kbytes 8192
-cc system regproducer accountnum12 EOS5kP5kFHij8BjDJBhFb4ADTgXber76kSKR215Zb2tZDfrnjVfhk https://accountnum12.com 
-
-
-cc system newaccount eosio --transfer accountnum13 EOS62fodgaQK7gY3juDpC9jP3mgLmdZ9RpzeAbSNyEgVshnaJGXGu --stake-net "100000000.0000 SYS" --stake-cpu "100000000.0000 SYS" --buy-ram-kbytes 8192
-cc system regproducer accountnum13 EOS62fodgaQK7gY3juDpC9jP3mgLmdZ9RpzeAbSNyEgVshnaJGXGu https://accountnum13.com 
-
+cc system newaccount eosio --transfer accountnum13 EOS5kRFTVqLMk8Cc5oTzdriN2hnat87AsmmujgYZg7rWGG1MJkJFW --stake-net "100000000.0000 SYS" --stake-cpu "100000000.0000 SYS" --buy-ram-kbytes 8192
+cc system regproducer accountnum13 EOS5kRFTVqLMk8Cc5oTzdriN2hnat87AsmmujgYZg7rWGG1MJkJFW http://accountnum13.com 
 
 cc system voteproducer prods accountnum11 accountnum11 accountnum12 accountnum13
 
 
-
-cc create key --to-console
-Private key: 5JeXzc4SSLSZefbbt3obJ3XcbVhLUoW81dgyJn5icXJZGBTFreV
-Public key: EOS62fodgaQK7gY3juDpC9jP3mgLmdZ9RpzeAbSNyEgVshnaJGXGu
-
-
---signature-provider EOS62fodgaQK7gY3juDpC9jP3mgLmdZ9RpzeAbSNyEgVshnaJGXGu=KEY:5JeXzc4SSLSZefbbt3obJ3XcbVhLUoW81dgyJn5icXJZGBTFreV \
-
-
-
-cc system newaccount eosio --transfer accountnum13 EOS62fodgaQK7gY3juDpC9jP3mgLmdZ9RpzeAbSNyEgVshnaJGXGu --stake-net "100000000.0000 SYS" --stake-cpu "100000000.0000 SYS" --buy-ram-kbytes 8192
-cc system regproducer accountnum13 EOS62fodgaQK7gY3juDpC9jP3mgLmdZ9RpzeAbSNyEgVshnaJGXGu https://accountnum13.com 
-
-
-
-
-cc system voteproducer prods accountnum11 accountnum11 accountnum12 accountnum13
 
 
 cc push action eosio updateauth '{"account": "eosio", "permission": "owner", "parent": "", "auth": {"threshold": 1, "keys": [], "waits": [], "accounts": [{"weight": 1, "permission": {"actor": "eosio.prods", "permission": "active"}}]}}' -p eosio@owner
@@ -224,3 +129,8 @@ cc push action eosio updateauth '{"account": "eosio.token", "permission": "activ
 
 cc push action eosio updateauth '{"account": "eosio.vpay", "permission": "owner", "parent": "", "auth": {"threshold": 1, "keys": [], "waits": [], "accounts": [{"weight": 1, "permission": {"actor": "eosio", "permission": "active"}}]}}' -p eosio.vpay@owner
 cc push action eosio updateauth '{"account": "eosio.vpay", "permission": "active", "parent": "owner", "auth": {"threshold": 1, "keys": [], "waits": [], "accounts": [{"weight": 1, "permission": {"actor": "eosio", "permission": "active"}}]}}' -p eosio.vpay@active
+
+
+
+
+cc system newaccount eosio --transfer learn EOS7JAcMoeQC5on734jDcLdctdg8u1XGWXZPf89e1xrYu7cNqvxqk --stake-net "100000000.0000 SYS" --stake-cpu "100000000.0000 SYS" --buy-ram-kbytes 8192

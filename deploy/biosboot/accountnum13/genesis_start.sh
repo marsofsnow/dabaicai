@@ -6,6 +6,10 @@ if [ ! -d $DATADIR ]; then
   mkdir -p $DATADIR;
 fi
 
+if [  -f $DATADIR"/nodeos.log" ]; then
+  echo "" > $DATADIR"/nodeos.log"
+fi
+
 nodeos \
 --genesis-json $DATADIR"/../../genesis.json" \
 --signature-provider EOS5kRFTVqLMk8Cc5oTzdriN2hnat87AsmmujgYZg7rWGG1MJkJFW=KEY:5JFFhaWdckFjXqDfUw2hGj3Ht4W1KX9BeX22MfJ8EmG23QcV5Es \

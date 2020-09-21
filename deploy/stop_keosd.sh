@@ -1,5 +1,5 @@
 #!/bin/bash
-DATADIR="/home/zh/eosio/eos/deploy/wallet"
+DATADIR=${PWD}"/wallet"
 
 if [ -f $DATADIR"/keosd.pid" ]; then
 pid=`cat $DATADIR"/keosd.pid"`

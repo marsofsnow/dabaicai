@@ -1,5 +1,12 @@
 
-WALLET_PATH="/home/zh/eosio/eos/deploy/wallet"
+
+
+WALLET_PATH=${PWD}"/wallet"
+
+if [  -f ${WALLET_PATH}"/keosd.log" ]; then
+  echo "" > ${WALLET_PATH}"/keosd.log"
+fi
+
 /usr/opt/eosio/2.0.7/bin/keosd  --config-dir ${WALLET_PATH} \
 --unix-socket-path ${WALLET_PATH}/keosd.sock  \
 --http-server-address 127.0.0.1:16666 \

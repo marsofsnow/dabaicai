@@ -33,6 +33,7 @@ deploy/biosboot/accountnum11/blockchain
 deploy/biosboot/accountnum12/blockchain
 deploy/biosboot/accountnum13/blockchain
 *.log
+*.pid
 build/
 
 

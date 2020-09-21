@@ -32,4 +32,3 @@ nodeos \
 --p2p-peer-address localhost:19013 \
 >> $DATADIR"/nodeos.log" 2>&1 & \
 echo $! > $DATADIR"/eosd.pid"
-tail -f $DATADIR"/nodeos.log"

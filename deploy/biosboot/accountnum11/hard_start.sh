@@ -6,6 +6,10 @@ if [ ! -d $DATADIR ]; then
   mkdir -p $DATADIR;
 fi
 
+if [  -f $DATADIR"/nodeos.log" ]; then
+  echo "" > $DATADIR"/nodeos.log"
+fi
+
 nodeos \
 --signature-provider EOS5BGsTksjoPuGrpTQGNDAD3wTvUoD8tioo4KgRjccfwEpF7HZzw=KEY:5KXzEgnjmsCTD8c6wPg3M24vF4SCNnJJQcpuperu7mS6hETrLv1 \
 --plugin eosio::producer_plugin \

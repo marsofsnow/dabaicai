@@ -6,6 +6,10 @@ if [ ! -d $DATADIR ]; then
   mkdir -p $DATADIR;
 fi
 
+if [  -f $DATADIR"/nodeos.log" ]; then
+  echo "" > $DATADIR"/nodeos.log"
+fi
+
 nodeos \
 --genesis-json $DATADIR"/../../genesis.json" \
 --signature-provider EOS5CXYetxpcMwkpTc2DaL3iurGZUPHoAKXg1QZdLrwF15JYRYUHY=KEY:5JqVhpCGS38iqo55BikWsnNcvKRQYK6be6uRvcKKsBtAWbMVvKC \
@@ -32,5 +36,4 @@ nodeos \
 --p2p-peer-address localhost:19013 \
 >> $DATADIR"/nodeos.log" 2>&1 & \
 echo $! > $DATADIR"/eosd.pid"
-tail -f $DATADIR"/nodeos.log"
 
