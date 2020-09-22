@@ -19,7 +19,10 @@ CONTRACT otcexchange : public contract
 {
 public:
    using contract::contract;
-   otcexchange(name self, name first_receiver, datastream<const char *> ds) : contract(self, first_receiver, ds) {}
+   otcexchange(name self, name first_receiver, datastream<const char *> ds) : contract(self, first_receiver, ds),
+                                                                              market_table(self, self.value)
+   {
+   }
 
    ACTION hi(name nm);
 
@@ -54,6 +57,7 @@ private:
    using market_index_t = multi_index<"markets"_n,
                                       market,
                                       indexed_by<"bystatus"_n, const_mem_fun<market, uint64_t, &market::get_secondary_status>>>;
+   market_index_t market_table;
 
 public:
    //new one  market 操作

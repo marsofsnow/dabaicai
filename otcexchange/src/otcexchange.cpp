@@ -187,16 +187,14 @@ ACTION otcexchange::newmarket(const symbol &stock,
 
    require_auth(get_self()); //必须要求是合约账号的权限
 
-   market_index_t markets(get_self(), get_self().value); //table是合约范围内的
-
    std::string str_pair = std::move(stock.code().to_string() + money.code().to_string());
    symbol_code code_pair = symbol_code(str_pair);
 
-   auto it = markets.find(code_pair.raw());
+   auto it = market_table.find(code_pair.raw());
 
-   check(it == markets.end(), str_pair + PAIR_EXIST_STR);
+   check(it == market_table.end(), str_pair + PAIR_EXIST_STR);
 
-   markets.emplace(_self, [&](market &m) {
+   market_table.emplace(_self, [&](market &m) {
       m.pair = code_pair;
       m.stock = stock;
       m.money = money;
@@ -216,15 +214,14 @@ ACTION otcexchange::newmarket(const symbol &stock,
 
 ACTION otcexchange::closemarket(const symbol_code &pair)
 {
-   require_auth(_self);                                  //必须要求是合约账号的权限
-   market_index_t markets(get_self(), get_self().value); //table是合约范围内的
+   require_auth(_self); //必须要求是合约账号的权限
 
-   auto it = markets.find(pair.raw());
+   auto it = market_table.find(pair.raw());
 
-   check(it != markets.end(), pair.to_string() + PAIR_NOT_EXIST_STR);
+   check(it != market_table.end(), pair.to_string() + PAIR_NOT_EXIST_STR);
    if (it->status != MARKET_STATUS_OFF)
    {
-      markets.modify(it, _self, [](market &m) {
+      market_table.modify(it, _self, [](market &m) {
          m.status = MARKET_STATUS_OFF;
          m.str_status = MARKET_STATUS_OFF_STR;
          m.utime = time_point_sec(current_time_point().sec_since_epoch());
@@ -234,15 +231,14 @@ ACTION otcexchange::closemarket(const symbol_code &pair)
 
 ACTION otcexchange::openmarket(const symbol_code &pair)
 {
-   require_auth(_self);                                  //必须要求是合约账号的权限
-   market_index_t markets(get_self(), get_self().value); //table是合约范围内的
+   require_auth(_self); //必须要求是合约账号的权限
 
-   auto it = markets.find(pair.raw());
+   auto it = market_table.find(pair.raw());
 
-   check(it != markets.end(), pair.to_string() + PAIR_NOT_EXIST_STR);
+   check(it != market_table.end(), pair.to_string() + PAIR_NOT_EXIST_STR);
    if (it->status != MARKET_STATUS_ON)
    {
-      markets.modify(it, _self, [](market &m) {
+      market_table.modify(it, _self, [](market &m) {
          m.status = MARKET_STATUS_ON;
          m.str_status = MARKET_STATUS_ON_STR;
          m.utime = time_point_sec(current_time_point().sec_since_epoch());
@@ -252,25 +248,25 @@ ACTION otcexchange::openmarket(const symbol_code &pair)
 
 ACTION otcexchange::rmmarket(const symbol_code &pair)
 {
-   require_auth(_self);                                  //必须要求是合约账号的权限
-   market_index_t markets(get_self(), get_self().value); //table是合约范围内的
+   require_auth(_self); //必须要求是合约账号的权限
+                        //table是合约范围内的
 
-   auto it = markets.find(pair.raw());
+   auto it = market_table.find(pair.raw());
 
-   check(it != markets.end(), pair.to_string() + PAIR_NOT_EXIST_STR);
-   markets.erase(it);
+   check(it != market_table.end(), pair.to_string() + PAIR_NOT_EXIST_STR);
+   market_table.erase(it);
    print("delete one market finish\n");
 }
 
 ACTION otcexchange::rmmarkets()
 {
 
-   require_auth(_self);                                  //必须要求是合约账号的权限
-   market_index_t markets(get_self(), get_self().value); //table是合约范围内的
-   auto it = markets.begin();
-   while (it != markets.end())
+   require_auth(_self); //必须要求是合约账号的权限
+                        //table是合约范围内的
+   auto it = market_table.begin();
+   while (it != market_table.end())
    {
-      it = markets.erase(it);
+      it = market_table.erase(it);
    }
    print("delete all market finish\n");
 }
