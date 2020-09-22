@@ -3,14 +3,17 @@
 #define BALANCE_TYPE_AVAILABLE 1
 #define BALANCE_TYPE_FREEZE 2
 
-#define DEAL_STATUS_CREATED 1           //创建完成
-#define DEAL_STATUS_PAYFIAT_PENING 2    //法币待支付完成
-#define DEAL_STATUS_PAYFIAT_FINISH 3    //法币支付完成
-#define DEAL_STATUS_PAYCOIN_PENDING 4   //放币中
-#define DEAL_STATUS_PAYCOIN_FINISH 5    //放币完成
-#define DEAL_STATUS_ARBITRATE_PENDING 6 //仲裁中
-#define DEAL_STATUS_ARBITRATE_FINISH 7  //仲裁结束
-#define DEAL_STATUS_FINISH 8            //deal over
+#define DEAL_STATUS_UNPAID 10                  //未付款
+#define DEAL_STATUS_UNPAID_MAN_CANCELED 11     //未付款手动取消
+#define DEAL_STATUS_UNPAID_TIMEOUT_CANCELED 12 //未付款超时取消
+
+#define DEAL_STATUS_PAID 20              //已付款
+#define DEAL_STATUS_PAID_UNPLAYCOIN 21   //已付款待放币(买卖方都可以申述)
+#define DEAL_STATUS_PAID_ASK_APPEAL 22   //已付款待放币(买卖方都可以申述)
+#define DEAL_STATUS_PAID_BID_APPEAL 23   //已付款待放币(买卖方都可以申述)
+#define DEAL_STATUS_PAID_ARBIARATE 24    //已付款待放币仲裁中
+#define DEAL_STATUS_PAID_PLAYCOIN_ING 25 //放币中
+#define DEAL_STATUS_PAID_PLAYCOIN_ED 25  //放币完成
 
 #define MARKET_STATUS_ON 1  //允许交易
 #define MARKET_STATUS_OFF 2 //不允许交易
@@ -18,10 +21,11 @@
 #define MARKET_STATUS_ON_STR "allow trade"      //允许交易
 #define MARKET_STATUS_OFF_STR "not allow trade" //不允许交易
 
-#define ORDER_STATUS_CREATED 1     //创建完成
-#define ORDER_STATUS_EXCHANGING 2  //交易中
-#define ORDER_STATUS_MANU_CANCEL 3 //手动取消
-#define ORDER_STATUS_FINISH 30     //结束
+#define AD_STATUS_ONTHESHELF 1      //上架中
+#define AD_STATUS_MAN_OFFTHESHELF 2 //手动下架
+#define AD_STATUS_AUT_OFFTHESHELF 3 //自动下架
+#define AD_STATUS_CANCELED 4        //已撤销
+#define AD_STATUS_FINISHED 5        //已完成
 
 #define MARKET_ORDER_TYPE_LIMIT 1
 #define MARKET_ORDER_TYPE_MARKET 2
