@@ -1,5 +1,8 @@
 #pragma once
 
+#define USING_ACTION(contract_name, action_name) using action_name##_action = action_wrapper<#action_name##_n, &contract_name::action_name>
+#define ZERO_ASSET(symbol) (asset(0, symbol))
+
 #define BALANCE_TYPE_AVAILABLE 1
 #define BALANCE_TYPE_FREEZE 2
 
@@ -68,3 +71,58 @@
 #define ERR_CHECK_PRICE_GREAT_ZERO " price  must > 0"
 #define ERR_CHECK_AMOUNT_GREAT_ZERO " amount must > 0"
 #define ERR_CHECK_FORBIN_CANCEL_SELL_ORDER " forbid cancel ask order"
+
+//交易对的错误信息
+#define ERR_MSG_PAIR_NOT_EXIST " exchange pair not  exist"
+#define ERR_MSG_PAIR_NOT_ALLOW_TRADE " exchange pair not  allow trade"
+#define ERR_MSG_PAIR_HAS_EXISTED " exchange pair has  exist"
+
+//广告订单的错误消息
+#define ERR_MSG_AD_NOT_EXIST " adorder not exist"
+
+//校验入参 错误消息拼接成字符串
+
+#define ERR_MSG_CHECK_FAILED(ecode, msg) (std::string(R"1({"ecode":)1").append(std::to_string(ecode)).append(R"1(","msg":")1").append(msg).append(R"1("})1"))
+#define ERR_MSG_SIDE ERR_MSG_CHECK_FAILED(50800, SIDE_INVALID_STR)
+
+#define ERR_MSG_PARAM_LT_ZERO(ecode, param, tip) (std::string(R"1({"ecode":)1").append(std::to_string(ecode)).append(R"1(","msg":")1").append(#param).append(" value <  0 |").append(tip).append(R"1("})1"))         //param的value must be >=0
+#define ERR_MSG_PARAM_LE_ZERO(ecode, param, tip) (std::string(R"1({"ecode":)1").append(std::to_string(ecode)).append(R"1(","msg":")1").append(#param).append(" value <=  0 |").append(tip).append(R"1("})1"))        //param的value must be >0
+#define ERR_MSG_PARAM_LT(ecode, p1, p2, tip) (std::string(R"1({"ecode":)1").append(std::to_string(ecode)).append(R"1(","msg":")1").append(#p1).append(" < ").append(#p2).append("|").append(tip).append(R"1("})1"))  //param的value must be >0
+#define ERR_MSG_PARAM_LE(ecode, p1, p2, tip) (std::string(R"1({"ecode":)1").append(std::to_string(ecode)).append(R"1(","msg":")1").append(#p1).append(" <= ").append(#p2).append("|").append(tip).append(R"1("})1")) //param的value must be >0
+
+//pair error
+#define ERR_MSG_PARAM_PAIR_TAKER_FEE_RATE_MUST_GE_ZERO "taker fee rate must ge zero"
+#define ERR_MSG_PARAM_PAIR_MAKER_FEE_RATE_MUST_GE_ZERO "maker fee rate must ge zero"
+
+#define ERR_MSG_PARAM_PAIR_AMOUNT_MIN_MUST_GT_ZERO "ad order allow min_amount must gt zero"
+#define ERR_MSG_PARAM_PAIR_AMOUNT_MAX_MUST_GT_ZERO "ad order allow mxn_amount must gt zero"
+#define ERR_MSG_PARAM_PAIR_AMOUNT_MAX_MUST_GE_MIN "ad order allow amount max must ge min"
+
+#define ERR_MSG_PARAM_PAIR_PRICE_MIN_MUST_GT_ZERO "ad order allow min_price must gt zero"
+#define ERR_MSG_PARAM_PAIR_PRICE_MAX_MUST_GT_ZERO "ad order allow max_price must gt zero"
+#define ERR_MSG_PARAM_PAIR_PRICE_MAX_MUST_GE_MIN "ad order allow price max must ge min"
+
+#define ERR_MSG_PARAM_PAIR_PAY_TIMEOUT_MUST_GT_ZERO "allow pay timeout(s) must gt zero"
+#define ERR_MSG_PARAM_PAIR_AD_CANCEL_NUM_MUST_GT_ZERO "allow ad cancel num must gt zero"
+
+//put ad error
+
+#define ERR_MSG_PARAM_AD_AMOUNT_MUST_GT_ZERO "ad order amount  must ge zero"
+#define ERR_MSG_PARAM_AD_AMOUNT_RANGE "ad order amount  in exchange pair amount range"
+
+#define ERR_MSG_PARAM_AD_AMOUNT_MIN_MUST_GT_ZERO "ad order allow  deal min_amount must gt zero"
+#define ERR_MSG_PARAM_AD_AMOUNT_MAX_MUST_GT_ZERO "ad order allow  deal mxn_amount must gt zero"
+#define ERR_MSG_PARAM_AD_AMOUNT_MAX_MUST_GE_MIN "ad order allow  amount deal max must ge min"
+#define ERR_MSG_PARAM_AD_AMOUNT_MUST_GE_AMOUNT_MAX "ad order allow  amount must ge deal max amount"
+#define ERR_MSG_PARAM_AD_PRICE_MUST_GT_ZERO "ad order price   must ge zero"
+#define ERR_MSG_PARAM_AD_PRICE_RANGE "ad order price  in exchange pair price range"
+
+#define ERR_MSG_
+#define ERR_MSG_
+#define ERR_MSG_
+#define ERR_MSG_
+#define ERR_MSG_
+#define ERR_MSG_
+#define ERR_MSG_
+
+//错误码分配 500100-500199 分配给market

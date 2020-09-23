@@ -1,4 +1,9 @@
 {
+    "env": {
+        "myDefaultIncludePath": [
+            "${workspaceFolder}"
+        ]
+    },
     "configurations": [
         {
             "name": "Linux",
@@ -10,12 +15,22 @@
                 "${workspaceFolder}/"
             ],
             "defines": [
-                "USING_ACTION"
+                "USING_ACTION",
+                "USING_ACTION(contract_name,action_name)",
+                "_n"
             ],
             "compilerPath": "/usr/bin/clang",
             "cStandard": "c11",
             "cppStandard": "c++14",
-            "intelliSenseMode": "clang-x64"
+            "intelliSenseMode": "clang-x64",
+            "browse": {
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": "${default}",
+                "path": [
+                    "${default}",
+                    "/usr/opt/eosio.cdt/1.7.0/include/"
+                ]
+            }
         }
     ],
     "version": 4

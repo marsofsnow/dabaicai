@@ -1,16 +1,16 @@
+
 #include <eosio/eosio.hpp>
 #include <eosio/asset.hpp>
 #include <eosio/action.hpp>
 #include <eosio/transaction.hpp>
-#include <eosio/singleton.hpp>
-
+//#include <eosio/singleton.hpp>
 #include <eosio/name.hpp>
 
 #include <string>
 
 #include <vector>
 #include <unordered_map>
-#include "common/define.hpp"
+//#include "common/define.hpp"
 #include "define.h"
 
 using namespace eosio;
@@ -34,16 +34,20 @@ private:
    //交易对 ADXCNY
    TABLE market
    {
-      symbol_code pair;     //交易对
-      symbol stock;         //coin 需要指定[代币精度,代币符号]
-      symbol money;         //fiat 需要指定[法币精度，法币符合]
-      asset taker_fee_rate; // taker手续费费率
-      asset maker_fee_rate;
-      asset amount_min;                  // 限定的最小交易数量 单位是代币
-      asset amount_max;                  // 限定的最大交易数量  单位是代币
-      asset price_min;                   // 限定的最小交易价格  单位是法币
-      asset price_max;                   // 限定的最大交易价格  单位是法币
-      uint8_t status = MARKET_STATUS_ON; //交易对是否打开交易
+      symbol_code pair;                  //交易对
+      symbol stock;                      //coin 需要指定[代币精度,代币符号]
+      symbol money;                      //fiat 需要指定[法币精度，法币符合]
+      asset taker_fee_rate;              // taker手续费费率[数量，代币精度，代币符号]
+      asset maker_fee_rate;              // maker手续费费率[数量，代币精度，代币符号]
+      asset amount_min;                  // 限定的最小交易数量  [数量，代币精度，代币符号]
+      asset amount_max;                  // 限定的最大交易数量  [数量，代币精度，代币符号]
+      asset price_min;                   // 限定的最小交易价格  [数量，代币精度，代币符号]
+      asset price_max;                   // 限定的最大交易价格  [数量，代币精度，代币符号]
+      asset zero_stock;                  //代币的0值
+      asset zero_money;                  //法币的0值
+      uint32_t pay_timeout;              //买币方支付法币的超时时间,精确到s
+      uint32_t cancel_ad_num;            //用户取消广告单次数
+      uint8_t status = MARKET_STATUS_ON; //交易对是否允许交易
       std::string str_status;
       time_point_sec ctime{current_time_point().sec_since_epoch()};
       time_point_sec utime{current_time_point().sec_since_epoch()};
@@ -59,6 +63,7 @@ private:
                                       indexed_by<"bystatus"_n, const_mem_fun<market, uint64_t, &market::get_secondary_status>>>;
    market_index_t markettable_; //属于合约，scope是全表
 
+   //广告挂单
    TABLE adorder
    {
       uint64_t id;                    //广告订单id，自增主键,scope = pair+side.相当于盘口,卖盘，由小到大，买盘由大到小
@@ -114,6 +119,7 @@ private:
       asset ask_fee;           //收取的卖方手续费
       asset bid_fee;           //收取的买方手续费
       uint8_t status;          //成交的状态
+      uint32_t pay_timeout;    //支付超时时间,s
       symbol_code pair;        //交易对
       std::string source;      //备注信息，仲裁信息等
 
@@ -135,7 +141,9 @@ public:
                     asset amount_min,
                     asset amount_max,
                     asset price_min,
-                    asset price_max); //new one  market 操作
+                    asset price_max,
+                    uint32_t pay_timeout,
+                    uint8_t cancel_ad_num); //new one  market 操作
 
    ACTION closemarket(const symbol_code &pair); //交易对禁止交易
    ACTION openmarket(const symbol_code &pair);  //交易对放开交易
@@ -172,7 +180,6 @@ public:
    ACTION paydeal(const symbol_code &pair, uint64_t deal_id);  //支付
    ACTION playcoin(const symbol_code &pair, uint64_t deal_id); //放币操作
 
-   
    inline static uint8_t side_to_uint(const std::string &side)
    {
       if (side == "ask")
@@ -223,14 +230,25 @@ public:
       return order_index_t(_self, name{scope}.value);
    }
 
+   inline order_index_t::const_iterator get_adorder(const symbol_code &pair, const std::string &side, uint64_t ad_id)
+   {
+
+      auto adtable_ = get_adtable(pair, side);
+      auto it = adtable_.require_find(ad_id, ERR_MSG_AD_NOT_EXIST);
+      return it;
+   }
+
+   inline market_index_t::const_iterator get_open_market(const symbol_code &pair) //
+   {
+      auto it = markettable_.require_find(pair.raw(), ERR_MSG_CHECK_FAILED(50110, pair.to_string().append(ERR_MSG_PAIR_NOT_EXIST)).c_str());
+      check(it->status == MARKET_STATUS_ON, ERR_MSG_CHECK_FAILED(50111, pair.to_string().append(ERR_MSG_PAIR_NOT_ALLOW_TRADE)));
+      return it;
+   }
+
    ACTION rmmarket(const symbol_code &pair)
    {
-      require_auth(_self); //必须要求是合约账号的权限
-                           //table是合约范围内的
-
-      auto it = markettable_.find(pair.raw());
-
-      check(it != markettable_.end(), pair.to_string() + PAIR_NOT_EXIST_STR);
+      require_auth(_self); //必须要求是合约账号的权限+table是合约范围内的
+      auto it = get_open_market(pair);
       markettable_.erase(it);
       print("delete one market finish\n");
    }
@@ -252,8 +270,7 @@ public:
    {
       require_auth(get_self()); //只有合约才能删除广告订单
       auto adtable_ = get_adtable(pair, side);
-
-      auto it = adtable_.require_find(ad_id, ORDER_NOT_EXIST_STR);
+      auto it = adtable_.require_find(ad_id, ERR_MSG_AD_NOT_EXIST);
       adtable_.erase(it);
    }
 
@@ -262,7 +279,6 @@ public:
       require_auth(get_self()); //只有合约才能删除广告订单
       auto adtable_ = get_adtable(pair, side);
       auto it = adtable_.begin();
-
       while (it != adtable_.end())
       {
          it = adtable_.erase(it);

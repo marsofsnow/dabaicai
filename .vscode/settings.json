@@ -3,7 +3,6 @@
     "editor.fontFamily": "'Fira Code','Droid Sans Mono', 'monospace', monospace, 'Droid Sans Fallback'",
     "font-switcher.enableLivePreview": true,
     "font-switcher.fontFamily": "Fira Code,Consolas, DejaVu Sans Mono, monospace",
-    "C_Cpp.errorSquiggles": "Enabled",
     "files.autoSave": "onFocusChange",
     "files.associations": {
         "any": "cpp",
@@ -97,5 +96,7 @@
         "locale": "cpp",
         "queue": "cpp",
         "stack": "cpp"
-    }
+    },
+    "C_Cpp.errorSquiggles": "Enabled",
+    "commentTranslate.targetLanguage": "zh-CN"
 }

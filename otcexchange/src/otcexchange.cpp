@@ -1,4 +1,4 @@
-#include <otcexchange.hpp>
+#include "otcexchange.hpp"
 #include <eosio/print.hpp>
 #include <algorithm>
 
@@ -17,17 +17,42 @@ ACTION otcexchange::newmarket(const symbol &stock,
                               asset amount_min,
                               asset amount_max,
                               asset price_min,
-                              asset price_max)
+                              asset price_max,
+                              uint32_t pay_timeout,
+                              uint8_t cancel_ad_num)
 {
 
    require_auth(get_self()); //必须要求是合约账号的权限
+
+   //入参校验
+
+   check(stock.is_valid(), "invalid symbol name");
+   check(money.is_valid(), "invalid symbol name");
+
+   auto zero_stock = ZERO_ASSET(stock);
+   auto zero_money = ZERO_ASSET(money);
+
+   check(taker_fee_rate >= zero_stock, ERR_MSG_PARAM_LT_ZERO(50100, taker_fee_rate, ERR_MSG_PARAM_PAIR_TAKER_FEE_RATE_MUST_GE_ZERO));
+   check(maker_fee_rate >= zero_stock, ERR_MSG_PARAM_LT_ZERO(50101, maker_fee_rate, ERR_MSG_PARAM_PAIR_MAKER_FEE_RATE_MUST_GE_ZERO));
+
+   check(amount_min > zero_stock, ERR_MSG_PARAM_LE_ZERO(50102, amount_min, ERR_MSG_PARAM_PAIR_AMOUNT_MIN_MUST_GT_ZERO));
+   check(amount_max > zero_stock, ERR_MSG_PARAM_LE_ZERO(50103, amount_max, ERR_MSG_PARAM_PAIR_AMOUNT_MAX_MUST_GT_ZERO));
+
+   check(amount_min <= amount_max, ERR_MSG_PARAM_LT(50104, amount_max, amount_min, ERR_MSG_PARAM_PAIR_AMOUNT_MAX_MUST_GE_MIN));
+
+   check(price_min > zero_money, ERR_MSG_PARAM_LE_ZERO(50105, price_min, ERR_MSG_PARAM_PAIR_PRICE_MIN_MUST_GT_ZERO));
+   check(price_max > zero_money, ERR_MSG_PARAM_LE_ZERO(50106, price_max, ERR_MSG_PARAM_PAIR_PRICE_MAX_MUST_GT_ZERO));
+   check(price_min <= price_max, ERR_MSG_PARAM_LT(50107, amount_max, amount_min, ERR_MSG_PARAM_PAIR_PRICE_MAX_MUST_GE_MIN));
+
+   check(pay_timeout > 0, ERR_MSG_PARAM_LT_ZERO(50108, pay_timeout, ERR_MSG_PARAM_PAIR_PAY_TIMEOUT_MUST_GT_ZERO));
+   check(cancel_ad_num > 0, ERR_MSG_PARAM_LT_ZERO(50109, cancel_ad_num, ERR_MSG_PARAM_PAIR_AD_CANCEL_NUM_MUST_GT_ZERO));
 
    std::string str_pair = std::move(stock.code().to_string() + money.code().to_string());
    symbol_code code_pair = symbol_code(str_pair);
 
    auto it = markettable_.find(code_pair.raw());
 
-   check(it == markettable_.end(), str_pair + PAIR_EXIST_STR);
+   check(it == markettable_.end(), ERR_MSG_CHECK_FAILED(50110, str_pair + ERR_MSG_PAIR_HAS_EXISTED)); //exchang pair has exist
 
    markettable_.emplace(_self, [&](market &m) {
       m.pair = code_pair;
@@ -37,9 +62,12 @@ ACTION otcexchange::newmarket(const symbol &stock,
       m.maker_fee_rate = maker_fee_rate;
       m.amount_min = amount_min;
       m.amount_max = amount_max;
-
       m.price_min = price_min;
       m.price_max = price_max;
+      m.zero_stock = zero_stock;
+      m.zero_money = zero_money;
+      m.cancel_ad_num = cancel_ad_num;
+      m.pay_timeout = pay_timeout;
       m.status = MARKET_STATUS_ON;
       m.str_status = MARKET_STATUS_ON_STR;
       m.ctime = time_point_sec(current_time_point().sec_since_epoch());
@@ -50,10 +78,8 @@ ACTION otcexchange::newmarket(const symbol &stock,
 ACTION otcexchange::closemarket(const symbol_code &pair)
 {
    require_auth(_self); //必须要求是合约账号的权限
-
    auto it = markettable_.find(pair.raw());
-
-   check(it != markettable_.end(), pair.to_string() + PAIR_NOT_EXIST_STR);
+   check(it != markettable_.end(), ERR_MSG_CHECK_FAILED(50110, pair.to_string().append(ERR_MSG_PAIR_NOT_EXIST)).c_str());
    if (it->status != MARKET_STATUS_OFF)
    {
       markettable_.modify(it, _self, [](market &m) {
@@ -67,10 +93,8 @@ ACTION otcexchange::closemarket(const symbol_code &pair)
 ACTION otcexchange::openmarket(const symbol_code &pair)
 {
    require_auth(_self); //必须要求是合约账号的权限
-
    auto it = markettable_.find(pair.raw());
-
-   check(it != markettable_.end(), pair.to_string() + PAIR_NOT_EXIST_STR);
+   check(it != markettable_.end(), ERR_MSG_CHECK_FAILED(50110, pair.to_string().append(ERR_MSG_PAIR_NOT_EXIST)).c_str());
    if (it->status != MARKET_STATUS_ON)
    {
       markettable_.modify(it, _self, [](market &m) {
@@ -92,29 +116,24 @@ ACTION otcexchange::putadorder(const symbol_code &pair,
 {
    require_auth(user);
 
-   auto itr_pair = markettable_.find(pair.raw());
-   check(itr_pair != markettable_.end(), PAIR_NOT_EXIST_STR);
+   auto itr_pair = get_open_market(pair);
 
-   check(price.amount > 0, ERR_CHECK_PRICE_GREAT_ZERO);
-   check(amount.amount > 0, ERR_CHECK_AMOUNT_GREAT_ZERO);
-   check(price.symbol == itr_pair->money, "");
-   check(amount.symbol == itr_pair->stock, "");
-   check(amount_min.symbol == itr_pair->stock, "");
-   check(amount_max.symbol == itr_pair->stock, "");
+   check(price > itr_pair->zero_money, ERR_MSG_PARAM_LT_ZERO(50210, price, ERR_MSG_PARAM_AD_PRICE_MUST_GT_ZERO));
+   check(amount > itr_pair->zero_stock, ERR_MSG_PARAM_LT_ZERO(50211, amount, ERR_MSG_PARAM_AD_AMOUNT_MUST_GT_ZERO));
 
-   check(amount_min <= amount_max, "");
-   check((side == MARKET_ORDER_SIDE_ASK_STR || side == MARKET_ORDER_SIDE_BID_STR), SIDE_INVALID_STR);
-
-   //交易对的属性比对
-
-   check(amount_min >= itr_pair->amount_min, "吃单数量小于配置最小交易数量");
-   check(amount_max <= itr_pair->amount_max, "吃单数量大于配置最小交易数量");
-
-   check(price >= itr_pair->price_min, "广告交易价格小于合约配置最低价");
-   check(price <= itr_pair->price_max, "广告交易价格大于合约配置最高价");
+   check(amount_min > itr_pair->zero_stock, ERR_MSG_PARAM_LE_ZERO(50212, amount_min, ERR_MSG_PARAM_AD_AMOUNT_MIN_MUST_GT_ZERO));
+   check(amount_max > itr_pair->zero_stock, ERR_MSG_PARAM_LE_ZERO(50213, amount_max, ERR_MSG_PARAM_AD_AMOUNT_MAX_MUST_GT_ZERO));
+   check(amount_min <= amount_max, ERR_MSG_PARAM_LE(50215, amount_min, amount_max, ERR_MSG_PARAM_AD_AMOUNT_MAX_MUST_GE_MIN));
+   check(amount_max <= amount, ERR_MSG_PARAM_LE(50216, amount_max, amount, ERR_MSG_PARAM_AD_AMOUNT_MUST_GE_AMOUNT_MAX));
 
    check(amount >= itr_pair->amount_min, "广告交易数量小于配置最小交易数量");
    check(amount <= itr_pair->amount_max, "广告交易数量大于配置最大交易数量");
+
+   //交易对的属性比对
+   check(price >= itr_pair->price_min, "广告交易价格小于合约配置最低价");
+   check(price <= itr_pair->price_max, "广告交易价格大于合约配置最高价");
+
+   check((side == MARKET_ORDER_SIDE_ASK_STR || side == MARKET_ORDER_SIDE_BID_STR), ERR_MSG_SIDE);
 
    auto side_int = side_to_uint(side);
    //是卖，判断余额够不够
@@ -136,7 +155,7 @@ ACTION otcexchange::putadorder(const symbol_code &pair,
       order.pair = pair;                               //
       order.ctime = current_time_point();              //订单创建时间，精确到微秒
       order.utime = order.ctime;                       //订单更新时间，精确到微秒
-      order.status = AD_STATUS_ONTHESHELF;             //订单状态，吃单和挂单的状态不同
+      order.status = AD_STATUS_ONTHESHELF;             //订单状态，上架中
       order.side = side_int;                           //买卖类型，1卖 2买
       order.type = MARKET_ORDER_TYPE_LIMIT;            //订单类型，1限价 2市价
       order.role = MARKET_ROLE_MAKER;                  //订单类型，1挂单 2吃单
@@ -147,10 +166,10 @@ ACTION otcexchange::putadorder(const symbol_code &pair,
       order.taker_fee_rate = itr_pair->taker_fee_rate; //吃单的手续费率
       order.maker_fee_rate = itr_pair->maker_fee_rate; //挂单的手续费率
       order.left = amount;                             //剩余多少数量未成交
-      order.freeze = asset(0, itr_pair->stock);        //冻结的stock或者money
-      order.deal_fee = asset(0, itr_pair->stock);      //累计的交易手续费
-      order.deal_stock = asset(0, itr_pair->stock);    //累计的交易sotck数量
-      order.deal_money = asset(0, itr_pair->money);    //累计的交易money
+      order.freeze = itr_pair->zero_stock;             //冻结的stock或者money
+      order.deal_fee = itr_pair->zero_stock;           //累计的交易手续费
+      order.deal_stock = itr_pair->zero_stock;         //累计的交易sotck数量
+      order.deal_money = itr_pair->zero_money;         //累计的交易money
       order.source = source;                           //备注信息，订单来源
    });
 }
@@ -158,14 +177,14 @@ ACTION otcexchange::putadorder(const symbol_code &pair,
 ACTION otcexchange::offselfad(const symbol_code &pair,
                               const std::string &side,
                               uint64_t ad_id,
-                              std::string &reason)
+                              const std::string &reason)
 {
    //如果是卖币的广告单，不能取消
 
    auto adtable_ = get_adtable(pair, side);
    auto it = adtable_.require_find(ad_id, ORDER_NOT_EXIST_STR);
    auto user = it->user;
-   require_auth(user);
+   require_auth(user); //鉴权
    //哪种条件才能取下架合约
    //检查当前的广告下面的吃单最新状态，看是否都完成了或者都取消了
    deal_index_t dealtable_(_self, name{pair.to_string()}.value);
@@ -286,6 +305,7 @@ ACTION otcexchange::puttkorder(const symbol_code &pair,
       deal.ask_fee = asset(0, itr_pair->stock);
       deal.bid_fee = asset(0, itr_pair->stock);
       deal.status = DEAL_STATUS_UNPAID; //待支付状态
+      deal.pay_timeout = itr_pair->pay_timeout;
       deal.pair = pair;
       deal.source = source;
    });
