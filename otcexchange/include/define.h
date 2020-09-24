@@ -3,6 +3,10 @@
 #define USING_ACTION(contract_name, action_name) using action_name##_action = action_wrapper<#action_name##_n, &contract_name::action_name>
 #define ZERO_ASSET(symbol) (asset(0, symbol))
 
+#define TOKEN_CONTRACT_NAME "eosio.token"
+#define TOKEN_CONTRACT_TRANSFER_ACTION "transfer"
+#define TOKEN_TEMP_ACCOUNT "otcexchange"
+
 #define BALANCE_TYPE_AVAILABLE 1
 #define BALANCE_TYPE_FREEZE 2
 
@@ -10,13 +14,17 @@
 #define DEAL_STATUS_UNPAID_MAN_CANCELED 11     //未付款手动取消
 #define DEAL_STATUS_UNPAID_TIMEOUT_CANCELED 12 //未付款超时取消
 
-#define DEAL_STATUS_PAID 20              //已付款
-#define DEAL_STATUS_PAID_UNPLAYCOIN 21   //已付款待放币(买卖方都可以申述)
-#define DEAL_STATUS_PAID_ASK_APPEAL 22   //已付款待放币(买卖方都可以申述)
-#define DEAL_STATUS_PAID_BID_APPEAL 23   //已付款待放币(买卖方都可以申述)
-#define DEAL_STATUS_PAID_ARBIARATE 24    //已付款待放币仲裁中
-#define DEAL_STATUS_PAID_PLAYCOIN_ING 25 //放币中
-#define DEAL_STATUS_PAID_PLAYCOIN_ED 25  //放币完成
+#define DEAL_STATUS_PAID_WAIT_PLAYCOIN 20        //已付款等待放币
+#define DEAL_STATUS_PAID_AD_APPEAL 21            //已付款待放币(买卖方都可以申述)广告方申诉
+#define DEAL_STATUS_PAID_DEAL_APPEAL 22          //已付款待放币(买卖方都可以申述)吃单方申诉
+#define DEAL_STATUS_PAID_ALL_APPEAL 23           //已付款待放币(买卖方都可以申述)双方申诉
+#define DEAL_STATUS_PAID_ARBIARATE 24            //已付款待放币仲裁中
+#define DEAL_STATUS_PAID_ARBIARATE_CANCEL 25     //已付款待放币仲裁取消
+#define DEAL_STATUS_PAID_ARBIARATE_PALYCOIN 26   //已付款待放币仲裁放币
+#define DEAL_STATUS_PAID_PLAYCOIN_ING 27         //放币中
+#define DEAL_STATUS_PAID_FINALREVIEW_CANCEL 28   //终审取消放币
+#define DEAL_STATUS_PAID_FINALREVIEW_PLAYCOIN 29 //终审放币
+#define DEAL_STATUS_PAID_PLAYCOIN_FINISH 30      //放币完成
 
 #define MARKET_STATUS_ON 1  //允许交易
 #define MARKET_STATUS_OFF 2 //不允许交易

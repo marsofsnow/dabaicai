@@ -97,6 +97,5 @@
         "queue": "cpp",
         "stack": "cpp"
     },
-    "C_Cpp.errorSquiggles": "Enabled",
-    "commentTranslate.targetLanguage": "zh-CN"
+    "C_Cpp.errorSquiggles": "Enabled"
 }

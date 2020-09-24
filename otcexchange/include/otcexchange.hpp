@@ -46,6 +46,8 @@ private:
       asset zero_stock;                  //代币的0值
       asset zero_money;                  //法币的0值
       uint32_t pay_timeout;              //买币方支付法币的超时时间,精确到s
+      uint32_t def_cancel_time;          //买币方支付法币的超时时间,精确到s
+      uint32_t def_playcoin_time;        //买币方支付法币的超时时间,精确到s
       uint32_t cancel_ad_num;            //用户取消广告单次数
       uint8_t status = MARKET_STATUS_ON; //交易对是否允许交易
       std::string str_status;
@@ -107,21 +109,24 @@ private:
       name user;
       uint8_t side; //taker是买还是卖
 
-      uint8_t type;            //广告订单类型，1限价 2市价
-      uint8_t role;            //广告订单类型，1挂单 2吃单
-      time_point ctime;        //创建时间
-      time_point utime;        //更新时间
-      name maker_user;         //对手方
-      uint64_t maker_order_id; //对手方广告订单id
-      asset price;             //成交价
-      asset amount;            //成交数量
-      asset quota;             //成交额price*amount
-      asset ask_fee;           //收取的卖方手续费
-      asset bid_fee;           //收取的买方手续费
-      uint8_t status;          //成交的状态
-      uint32_t pay_timeout;    //支付超时时间,s
-      symbol_code pair;        //交易对
-      std::string source;      //备注信息，仲裁信息等
+      uint8_t type;                          //广告订单类型，1限价 2市价
+      uint8_t role;                          //广告订单类型，1挂单 2吃单
+      time_point ctime;                      //创建时间
+      time_point utime;                      //更新时间
+      name maker_user;                       //对手方
+      uint64_t maker_order_id;               //对手方广告订单id
+      asset price;                           //成交价
+      asset amount;                          //成交数量
+      asset quota;                           //成交额price*amount
+      asset ask_fee;                         //收取的卖方手续费
+      asset bid_fee;                         //收取的买方手续费
+      uint8_t status;                        //成交的状态
+      uint32_t pay_timeout;                  //支付超时时间,
+      uint64_t pay_timeout_sender_id;        //异步事物id
+      uint64_t arbiarate_cancel_sender_id;   //异步事物idARBIARATE
+      uint64_t arbiarate_playcoin_sender_id; //异步事物id
+      symbol_code pair;                      //交易对
+      std::string source;                    //备注信息，仲裁信息等
 
       uint64_t primary_key() const { return id; }
       uint64_t get_secondary_user() const { return user.value; }
@@ -143,6 +148,8 @@ public:
                     asset price_min,
                     asset price_max,
                     uint32_t pay_timeout,
+                    uint32_t def_cancel_timeout,
+                    uint32_t def_playcoin_timeout,
                     uint8_t cancel_ad_num); //new one  market 操作
 
    ACTION closemarket(const symbol_code &pair); //交易对禁止交易
@@ -175,10 +182,87 @@ public:
                      const std::string &source);
    //otc 手动和超时取消
 
-   ACTION canceldeal(const symbol_code &pair, uint64_t deal_id, const std::string &reason);
+   void canceldeal(const symbol_code &pair, name who, uint64_t deal_id, uint8_t status, const std::string &reason);
 
-   ACTION paydeal(const symbol_code &pair, uint64_t deal_id);  //支付
-   ACTION playcoin(const symbol_code &pair, uint64_t deal_id); //放币操作
+   //手动取消待支付的订单
+   ACTION mancldeal(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason)
+   {
+      //
+      require_auth(who);
+      canceldeal(pair, who, deal_id, DEAL_STATUS_UNPAID_MAN_CANCELED, reason);
+   }
+   //超时取消待支付的订单,异步延迟事物
+   ACTION latecldeal(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason)
+   {
+      //权限是合约
+      require_auth(get_self());
+      canceldeal(pair, who, deal_id, DEAL_STATUS_UNPAID_TIMEOUT_CANCELED, reason);
+   }
+
+   ACTION paydeal(const symbol_code &pair, uint64_t deal_id); //支付
+
+   void playcoin(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason);     //放币操作
+   ACTION manplaycoin(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason) //放币操作
+   {
+      require_auth(who);
+      playcoin(pair, who, deal_id, reason);
+   }
+
+   ACTION grtplaycoin(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason)
+   {
+      require_auth(get_self());
+      playcoin(pair, who, deal_id, reason);
+   }
+
+   //初审通过延迟放币
+   ACTION defplaycoin(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason)
+   {
+
+      transaction t{};
+      t.actions.emplace_back(
+          permission_level(_self, name{"active"}),
+          _self,
+          name{"grtplaycoin"},
+          std::make_tuple(pair, who, deal_id, reason));
+
+      auto itr_pair = get_market(pair);
+
+      t.delay_sec = itr_pair->def_playcoin_time;
+
+      deal_index_t dealtable_(_self, name{pair.to_string()}.value);
+      auto it = dealtable_.require_find(deal_id, "吃单找不到");
+      auto now = current_time_point().sec_since_epoch();
+      dealtable_.modify(it, _self, [&](deal &d) {
+         d.status = DEAL_STATUS_PAID_PLAYCOIN_ING;
+         d.arbiarate_playcoin_sender_id = now;
+      });
+
+      t.send(now, _self);
+
+      print("Sent with a delay of ", t.delay_sec);
+   }
+   ACTION grtcancel(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason)
+   {
+      require_auth(get_self());
+      canceldeal(pair, who, deal_id, DEAL_STATUS_PAID_ARBIARATE_CANCEL, reason); //初审取消deal
+   }
+   ACTION defcancel(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason)
+   {
+      transaction t{};
+      t.actions.emplace_back(
+          permission_level(_self, name{"active"}),
+          _self,
+          name{"grtcancel"},
+          std::make_tuple(pair, who, deal_id, reason));
+
+      auto itr_pair = get_market(pair);
+
+      t.delay_sec = itr_pair->def_cancel_time;
+
+      t.send(current_time_point().sec_since_epoch(), _self);
+
+      print("Sent with a delay of ", t.delay_sec);
+   }
 
    inline static uint8_t side_to_uint(const std::string &side)
    {
@@ -199,8 +283,10 @@ public:
    }
    inline static uint8_t update_ad_status(adorder & ad, market_index_t::const_iterator itr_pair)
    {
+      //每次广告可交易数量变动后,对广告进行判断
       if (ad.status == AD_STATUS_ONTHESHELF)
       { //广告为上架中
+
          if (ad.left < itr_pair->amount_min)
          { //变动后交易数量小于交易对的最小交易数量时,状态改为自动下架
             ad.status = AD_STATUS_AUT_OFFTHESHELF;
@@ -243,6 +329,60 @@ public:
       auto it = markettable_.require_find(pair.raw(), ERR_MSG_CHECK_FAILED(50110, pair.to_string().append(ERR_MSG_PAIR_NOT_EXIST)).c_str());
       check(it->status == MARKET_STATUS_ON, ERR_MSG_CHECK_FAILED(50111, pair.to_string().append(ERR_MSG_PAIR_NOT_ALLOW_TRADE)));
       return it;
+   }
+
+   inline market_index_t::const_iterator get_market(const symbol_code &pair) //
+   {
+      auto it = markettable_.require_find(pair.raw(), ERR_MSG_CHECK_FAILED(50110, pair.to_string().append(ERR_MSG_PAIR_NOT_EXIST)).c_str());
+      return it;
+   }
+
+   inline void transfer(name from,
+                        name to,
+                        asset quantity,
+                        std::string memo)
+   {
+      //可以冻结,转账,扣手续费等
+      action(
+          permission_level{from, name{"active"}},
+          name{TOKEN_CONTRACT_NAME},
+          name{TOKEN_CONTRACT_TRANSFER_ACTION},
+          std::make_tuple(from, to, quantity, memo))
+          .send();
+   }
+
+   //on_notify函数不是可供直接调用的合约函数，它是一个通知处理程序（notification handler）必须指明监听的合约名（code）和Action名（action），这样可以避免处理从非eosio.token合约发送来的“假EOS”，提高了安全性
+   //on_notify函数能够监听eosio.token::transfer，是因为eosio.token::transfer内部调用了require_recipient(to)函数
+   //on_notify属性接受通配符，比如这样定义：[[eosio::on_notify("*::transfer")]] 可以让on_notify函数处理任何合约的transfer Action。
+   [[eosio::on_notify("eosio.token::transfer")]] void onTransfer(name from, name to, asset quantity, std::string memo)
+   {
+      if (to != _self)
+         return;
+      eosio::check(quantity.symbol == symbol("EOS", 4), "must pay with EOS token");
+      eosio::check(quantity.amount > 10000, "must send more than 1 EOS");
+
+      asset new_quantity = asset(quantity.amount + 1, symbol("EOS", 4));
+      action(permission_level{_self, "active"_n},
+             "eosio.token"_n,
+             "transfer"_n,
+             make_tuple(_self, from, new_quantity, std::string("+0.0001 EOS!")))
+          .send();
+   }
+   //法币支付超时->超时取消
+   ACTION paytimeout(const symbol_code &pair, uint64_t deal_id, const std::string &message)
+   {
+      print("Printing deferred ", pair, deal_id, message);
+   }
+
+   //如果延期交易执行失败，EOSIO会发送一个eosio::onerror的Action，可以使用on_notify监听此Action，从onerror对象获取sender_id和打包后的transaction数据，进行错误处理
+   [[eosio::on_notify("eosio::onerror")]] void onError(const onerror &error)
+   {
+
+      print("Resending Transaction: ", error.sender_id);
+      transaction dtrx = error.unpack_sent_trx();
+      dtrx.delay_sec = 3;
+
+      //dtrx.send(eosio::current_time_point().sec_since_epoch(), _self);
    }
 
    ACTION rmmarket(const symbol_code &pair)
