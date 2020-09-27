@@ -15,7 +15,7 @@
                 "${workspaceFolder}/"
             ],
             "defines": [
-                "USING_ACTION()",
+                "USING_ACTION",
                 "USING_ACTION(contract_name,action_name)",
                 "_n"
             ],

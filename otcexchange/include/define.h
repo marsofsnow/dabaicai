@@ -10,21 +10,26 @@
 #define BALANCE_TYPE_AVAILABLE 1
 #define BALANCE_TYPE_FREEZE 2
 
-#define DEAL_STATUS_UNPAID 10                  //未付款
-#define DEAL_STATUS_UNPAID_MAN_CANCELED 11     //未付款手动取消
-#define DEAL_STATUS_UNPAID_TIMEOUT_CANCELED 12 //未付款超时取消
+#define DEAL_STATUS_UNPAID 10                //未付款
+#define DEAL_STATUS_UNPAID_MAN_CANCEL 11     //未付款手动取消
+#define DEAL_STATUS_UNPAID_TIMEOUT_CANCEL 12 //未付款超时取消
 
-#define DEAL_STATUS_PAID_WAIT_PLAYCOIN 20        //已付款等待放币
-#define DEAL_STATUS_PAID_AD_APPEAL 21            //已付款待放币(买卖方都可以申述)广告方申诉
-#define DEAL_STATUS_PAID_DEAL_APPEAL 22          //已付款待放币(买卖方都可以申述)吃单方申诉
-#define DEAL_STATUS_PAID_ALL_APPEAL 23           //已付款待放币(买卖方都可以申述)双方申诉
-#define DEAL_STATUS_PAID_ARBIARATE 24            //已付款待放币仲裁中
-#define DEAL_STATUS_PAID_ARBIARATE_CANCEL 25     //已付款待放币仲裁取消
-#define DEAL_STATUS_PAID_ARBIARATE_PALYCOIN 26   //已付款待放币仲裁放币
-#define DEAL_STATUS_PAID_PLAYCOIN_ING 27         //放币中
-#define DEAL_STATUS_PAID_FINALREVIEW_CANCEL 28   //终审取消放币
-#define DEAL_STATUS_PAID_FINALREVIEW_PLAYCOIN 29 //终审放币
-#define DEAL_STATUS_PAID_PLAYCOIN_FINISH 30      //放币完成
+#define DEAL_STATUS_PAID_WAIT_PLAYCOIN 20 //已付款等待放币
+#define DEAL_STATUS_PAID_AD_APPEAL 21     //已付款待放币(买卖方都可以申述)广告方申诉
+#define DEAL_STATUS_PAID_DEAL_APPEAL 22   //已付款待放币(买卖方都可以申述)吃单方申诉
+#define DEAL_STATUS_PAID_ALL_APPEAL 23    //已付款待放币(买卖方都可以申述)双方申诉
+
+#define DEAL_STATUS_PAID_ARBIARATE_ING 24      //已付款待放币仲裁中
+#define DEAL_STATUS_PAID_ARBIARATE_CANCEL 25   //已付款待放币仲裁取消结果，合约修改的
+#define DEAL_STATUS_PAID_ARBIARATE_PALYCOIN 26 //已付款待放币仲裁放币结果，合约修改
+
+#define DEAL_STATUS_PAID_PLAYCOIN_ING 27 //放币中
+
+#define DEAL_STATUS_PAID_JUDGE_CANCEL 28   //终审结果为取消放币
+#define DEAL_STATUS_PAID_JUDGE_PLAYCOIN 29 //终审结果为放币
+
+#define DEAL_STATUS_PAID_PLAYCOIN_FINISH 30 //放币完成
+#define DEAL_STATUS_CANCEL_FINISH 31        //放币取消完成
 
 #define MARKET_STATUS_ON 1  //允许交易
 #define MARKET_STATUS_OFF 2 //不允许交易

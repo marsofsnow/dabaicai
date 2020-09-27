@@ -360,8 +360,8 @@ ACTION otcexchange::puttkorder(const symbol_code &pair,
    t.actions.emplace_back(
        permission_level(_self, name{"active"}),
        _self,
-       name{"latecldeal"},
-       std::make_tuple(pair, who, deal_id, "支付超时取消deal"));
+       name{"defcldeal"},
+       std::make_tuple(pair, who, deal_id, DEAL_STATUS_UNPAID_TIMEOUT_CANCELED, "支付超时取消deal"));
 
    t.delay_sec = itr_pair->pay_timeout;
 
@@ -370,14 +370,33 @@ ACTION otcexchange::puttkorder(const symbol_code &pair,
    print("Sent with a delay of ", t.delay_sec);
 }
 
-void otcexchange::canceldeal(const symbol_code &pair, name who, uint64_t deal_id, uint8_t status, const std::string &reason)
+//法币支付发点击了已支付
+ACTION otcexchange::paydeal(const symbol_code &pair, uint64_t deal_id) //支付
 {
 
-   //入参校验
-   check((status == DEAL_STATUS_UNPAID_TIMEOUT_CANCELED ||
-          status == DEAL_STATUS_UNPAID_MAN_CANCELED ||
-          status == DEAL_STATUS_PAID_ARBIARATE_CANCEL),
-         "入参：取消的订单只能是未付款(超时自动/手动)和仲裁取消");
+   deal_index_t dealtable_(_self, name{pair.to_string()}.value);
+   auto it = dealtable_.require_find(deal_id, "吃单找不到");
+   auto user = it->user;
+   require_auth(user);
+   check(it->status == DEAL_STATUS_UNPAID, "订单必须处于待支付状态");
+   dealtable_.modify(it, _self, [&](deal &d) {
+      d.status = DEAL_STATUS_PAID_WAIT_PLAYCOIN;
+      d.utime = current_time_point();
+      d.source.append("|点击已支付");
+   });
+   //取消异步事物
+   auto res = cancel_deferred(it->pay_timeout_sender_id);
+   print(res, "->1 if transaction was canceled, 0 if transaction was not found");
+}
+
+void otcexchange::rollbackdeal(const symbol_code &pair, name who, uint64_t deal_id, uint8_t status, const std::string &reason)
+{
+
+   //入参校验,
+   check((status == DEAL_STATUS_UNPAID_TIMEOUT_CANCEL ||
+          status == DEAL_STATUS_UNPAID_MAN_CANCEL ||
+          status == DEAL_STATUS_CANCEL_FINISH),
+         "入参：取消后的订单只能是未付款(超时自动/手动)和被已付款仲裁取消或者终审取消");
 
    auto itr_pair = get_market(pair);
 
@@ -387,19 +406,28 @@ void otcexchange::canceldeal(const symbol_code &pair, name who, uint64_t deal_id
    auto mk_user = it->maker_user; //广告主
 
    //订单状态已经改变,请刷新后查看
-   check(it->status == DEAL_STATUS_UNPAID || it->status == DEAL_STATUS_PAID_ARBIARATE, "只有处于待支付状态活着已支付仲裁中的订单才能取消");
+   check((it->status == DEAL_STATUS_UNPAID ||
+          it->status == DEAL_STATUS_PAID_ARBIARATE_ING ||
+          it->status == DEAL_STATUS_PAID_ARBIARATE_CANCEL ||
+          it->status == DEAL_STATUS_PAID_JUDGE_CANCEL),
+         "只有处于待支付状态或者仲裁中的订单或者对仲裁结果在进行仲裁才能取消");
 
-   //只有买币的一方才能取消,因为买币设计到法币支付
+   check(((it->status == DEAL_STATUS_UNPAID && (status == DEAL_STATUS_UNPAID_TIMEOUT_CANCEL || status == DEAL_STATUS_UNPAID_MAN_CANCEL)) ||
+          (((it->status == DEAL_STATUS_PAID_ARBIARATE_CANCEL) || (it->status == DEAL_STATUS_PAID_JUDGE_CANCEL)) && (status == DEAL_STATUS_CANCEL_FINISH))),
+         "");
+
+   //在待支付阶段要做这个判断，只有买币的一方才能取消,待支付手动取消和超时取消
    if (it->status == DEAL_STATUS_UNPAID)
    {
-      if (mk_user == user)
-      { //是广告主发起的的取消操作
-         check(it->side == MARKET_ORDER_SIDE_ASK, "广告主只能取消对应的卖币吃单,我不想付钱了");
+      if (mk_user == who)
+      {
+         //是广告主发起的买币才能进行取消操作
+         check(it->side == MARKET_ORDER_SIDE_ASK, "广告主只能取自己的买币吃单");
       }
       else
       {
 
-         check(it->side == MARKET_ORDER_SIDE_BID, "taker 为买币方,不想付钱了,取消"); //卖币如果能取消,法币怎么退回呢?
+         check(it->side == MARKET_ORDER_SIDE_BID, "taker 只能取消买币吃单"); //卖币如果能取消,法币怎么退回呢?
       }
    }
 
@@ -429,7 +457,7 @@ void otcexchange::canceldeal(const symbol_code &pair, name who, uint64_t deal_id
       d.status = status;
       d.utime = current_time_point();
       d.source.append(reason);
-      d.arbiarate_cancel_sender_id = current_time_point().sec_since_epoch();
+
       //手动取消这些是不是重置为0
       //d.quota=itr_pair->zero_money;
       //d.ask_fee = itr_pair->zero_stock;
@@ -438,33 +466,17 @@ void otcexchange::canceldeal(const symbol_code &pair, name who, uint64_t deal_id
    //广告表
 }
 
-//法币支付发点击了已支付
-ACTION otcexchange::paydeal(const symbol_code &pair, uint64_t deal_id) //支付
+void otcexchange::commitdeal(const symbol_code &pair, name who, uint64_t deal_id, uint8_t status, const std::string &reason) //放币操作
 {
 
    deal_index_t dealtable_(_self, name{pair.to_string()}.value);
    auto it = dealtable_.require_find(deal_id, "吃单找不到");
    auto user = it->user;
-   require_auth(user);
-   check(it->status == DEAL_STATUS_UNPAID, "订单必须处于待支付状态");
-   dealtable_.modify(it, _self, [&](deal &d) {
-      d.status = DEAL_STATUS_PAID_WAIT_PLAYCOIN;
-      d.utime = current_time_point();
-      d.source.append("|点击已支付");
-   });
-   //取消异步事物
-   auto res = cancel_deferred(it->pay_timeout_sender_id);
-   print(res, "->1 if transaction was canceled, 0 if transaction was not found");
-}
 
-void otcexchange::playcoin(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason) //放币操作
-{
-   //权限放在外面做
-   deal_index_t dealtable_(_self, name{pair.to_string()}.value);
-   auto it = dealtable_.require_find(deal_id, "吃单找不到");
-   auto user = it->user;
-
-   check(it->status == DEAL_STATUS_PAID_WAIT_PLAYCOIN || it->status == DEAL_STATUS_PAID_ARBIARATE_PALYCOIN, "订单必须处于已支付待放币和初审放币状态");
+   check(it->status == DEAL_STATUS_PAID_WAIT_PLAYCOIN ||
+             it->status == DEAL_STATUS_PAID_ARBIARATE_PALYCOIN ||
+             it->status == DEAL_STATUS_PAID_JUDGE_PLAYCOIN,
+         "订单必须处于已支付待放币和初审放币和终审放币状态");
 
    uint8_t status = (it->status == DEAL_STATUS_PAID_WAIT_PLAYCOIN) ? DEAL_STATUS_PAID_PLAYCOIN_FINISH : DEAL_STATUS_PAID_PLAYCOIN_ING;
 

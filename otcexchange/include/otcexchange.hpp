@@ -46,9 +46,9 @@ private:
       asset zero_stock;                  //代币的0值
       asset zero_money;                  //法币的0值
       uint32_t pay_timeout;              //买币方支付法币的超时时间,精确到s
-      uint32_t def_cancel_time;          //买币方支付法币的超时时间,精确到s
-      uint32_t def_playcoin_time;        //买币方支付法币的超时时间,精确到s
-      uint32_t cancel_ad_num;            //用户取消广告单次数
+      uint32_t def_cancel_time;          //初次仲裁取消，延迟取消的时间,精确到s
+      uint32_t def_playcoin_time;        //初次仲裁通过，延迟放币的时间,精确到s
+      uint32_t cancel_ad_num;            //允许用户取消广告单次数
       uint8_t status = MARKET_STATUS_ON; //交易对是否允许交易
       std::string str_status;
       time_point_sec ctime{current_time_point().sec_since_epoch()};
@@ -180,88 +180,210 @@ public:
                      asset amount,
                      uint64_t ad_id,
                      const std::string &source);
+
    //otc 手动和超时取消
 
-   void canceldeal(const symbol_code &pair, name who, uint64_t deal_id, uint8_t status, const std::string &reason);
+   void rollbackdeal(const symbol_code &pair, name who, uint64_t deal_id, uint8_t status, const std::string &reason);
+   void commitdeal(const symbol_code &pair, name who, uint64_t deal_id, uint8_t status, const std::string &reason); //放币操作
 
-   //手动取消待支付的订单
+   //1.手动取消待支付的订单
    ACTION mancldeal(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason)
    {
       //
       require_auth(who);
-      canceldeal(pair, who, deal_id, DEAL_STATUS_UNPAID_MAN_CANCELED, reason);
+      rollbackdeal(pair, who, deal_id, DEAL_STATUS_UNPAID_MAN_CANCELED, reason);
    }
-   //超时取消待支付的订单,异步延迟事物
-   ACTION latecldeal(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason)
+
+   //3.买币方支付法币
+   ACTION paydeal(const symbol_code &pair, uint64_t deal_id);
+
+   //4.卖币方主动放币
+   ACTION selfplaycoin(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason) //放币操作
+   {
+      require_auth(who);
+      commitdeal(pair, who, deal_id, DEAL_STATUS_PAID_PLAYCOIN_FINISH, reason);
+   }
+
+   //异步取消订单,异步延迟事物
+   ACTION defcldeal(const symbol_code &pair, name who, uint64_t deal_id, uint8_t status, const std::string &reason)
    {
       //权限是合约
       require_auth(get_self());
-      canceldeal(pair, who, deal_id, DEAL_STATUS_UNPAID_TIMEOUT_CANCELED, reason);
+      rollbackdeal(pair, who, deal_id, status, reason);
    }
 
-   ACTION paydeal(const symbol_code &pair, uint64_t deal_id); //支付
-
-   void playcoin(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason);     //放币操作
-   ACTION manplaycoin(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason) //放币操作
+   ACTION defcmdeal(const symbol_code &pair, name who, uint64_t deal_id, uint8_t status, const std::string &reason)
    {
-      require_auth(who);
-      playcoin(pair, who, deal_id, reason);
-   }
-
-   ACTION grtplaycoin(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason)
-   {
+      //权限是合约
       require_auth(get_self());
-      playcoin(pair, who, deal_id, reason);
+      commitdeal(pair, who, deal_id, status, reason);
    }
 
-   //初审通过延迟放币
-   ACTION defplaycoin(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason)
+   //-------------------------------------------
+
+   //仲裁者仲裁取消deal
+   ACTION artrbdeal(name arbiter, const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason)
    {
+      //判定这个单被取消了
+      require_auth(arbiter);
+
+      //修改订单的状态为 DEAL_STATUS_PAID_ARBIARATE_CANCEL
+
+      //立即把订单状态更改为仲裁取消状态，但是只是记录交易更改，实际的取消要延迟
+      deal_index_t dealtable_(_self, name{pair.to_string()}.value);
+      auto it = dealtable_.require_find(deal_id, "吃单找不到");
+      check(it->status == DEAL_STATUS_PAID_ARBIARATE_ING, "吃单发起伸述了，才能仲裁被取消");
+      auto now = current_time_point().sec_since_epoch();
+      dealtable_.modify(it, _self, [&](deal &d) {
+         d.status = DEAL_STATUS_PAID_ARBIARATE_CANCEL; //立即更改状态使用户看的到
+         d.arbiarate_cancel_sender_id = now;
+         d.source.append(reason); //你的订单已经被仲裁取消，XX后生效，如有异议，请发起终审
+      });
+
+      //取消XX后生效,状态DEAL_STATUS_PAID_ARBIARATE_CANCEL->DEAL_STATUS_CANCEL_FINISH
 
       transaction t{};
+
       t.actions.emplace_back(
           permission_level(_self, name{"active"}),
           _self,
-          name{"grtplaycoin"},
-          std::make_tuple(pair, who, deal_id, reason));
+          name{"defcldeal"},
+          std::make_tuple(pair, who, deal_id, DEAL_STATUS_CANCEL_FINISH, "deal因仲裁取消但是用户又没有发起终审而取消"));
 
       auto itr_pair = get_market(pair);
 
-      t.delay_sec = itr_pair->def_playcoin_time;
-
-      deal_index_t dealtable_(_self, name{pair.to_string()}.value);
-      auto it = dealtable_.require_find(deal_id, "吃单找不到");
-      auto now = current_time_point().sec_since_epoch();
-      dealtable_.modify(it, _self, [&](deal &d) {
-         d.status = DEAL_STATUS_PAID_PLAYCOIN_ING;
-         d.arbiarate_playcoin_sender_id = now;
-      });
+      t.delay_sec = itr_pair->pay_timeout;
 
       t.send(now, _self);
 
       print("Sent with a delay of ", t.delay_sec);
    }
-   ACTION grtcancel(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason)
+
+   ACTION judgerbdeal(name judger, const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason)
    {
-      require_auth(get_self());
-      canceldeal(pair, who, deal_id, DEAL_STATUS_PAID_ARBIARATE_CANCEL, reason); //初审取消deal
+      //终审判定这个单被取消了
+      require_auth(judger);
+
+      //修改订单的状态为 DEAL_STATUS_PAID_ARBIARATE_CANCEL
+
+      deal_index_t dealtable_(_self, name{pair.to_string()}.value);
+      auto it = dealtable_.require_find(deal_id, "吃单找不到");
+
+      check(it->status == DEAL_STATUS_PAID_ARBIARATE_CANCEL || it->status == DEAL_STATUS_PAID_ARBIARATE_PALYCOIN, "只有经过仲裁了才能发起终审");
+
+      uint8_t old_status = it->status;
+
+      auto now = current_time_point().sec_since_epoch();
+      dealtable_.modify(it, _self, [&](deal &d) {
+         d.status = DEAL_STATUS_PAID_JUDGE_CANCEL; //立即更改状态使用户看的到
+         d.source.append(reason);                  //你的订单已经被仲裁取消，XX后生效，如有异议，请发起终审
+      });
+
+      //取消XX后生效
+      if (old_status == DEAL_STATUS_PAID_ARBIARATE_CANCEL)
+      {
+         //什么都不做，等待之前判定为取消状态的订单定时取消
+         return;
+      }
+      //否决之前的放币
+      if (old_status == DEAL_STATUS_PAID_ARBIARATE_PALYCOIN)
+      {
+         //之前是仲裁放币，先取消异步放币事务，在反向rollback
+         int rescode = cancel_deferred(it->arbiarate_playcoin_sender_id); //这个不会被执行了
+         //发送一个robackaction
+         if (rescode == 1)
+         {
+            rollbackdeal(pair, who, deal_id, DEAL_STATUS_CANCEL_FINISH, reason); //把订单状态改为取消完成
+         }
+         else if (rescode == 0)
+         {
+            print("之前的仲裁取消放币异步事务找不到了，重大bug，测试要注意");
+         }
+      }
    }
-   ACTION defcancel(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason)
+
+   //仲裁者仲裁提交deal
+   ACTION artcmdeal(name arbiter, const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason)
    {
+
+      //被仲裁放币
+      require_auth(arbiter);
+
+      //修改订单的状态为 DEAL_STATUS_PAID_ARBIARATE_CANCEL
+
+      deal_index_t dealtable_(_self, name{pair.to_string()}.value);
+      auto it = dealtable_.require_find(deal_id, "吃单找不到");
+
+      check(it->status == DEAL_STATUS_PAID_ARBIARATE_ING, "吃单发起伸述了，才能仲裁放币");
+
+      auto now = current_time_point().sec_since_epoch();
+      dealtable_.modify(it, _self, [&](deal &d) {
+         d.status = DEAL_STATUS_PAID_ARBIARATE_PALYCOIN; //立即更改状态使用户看的到
+         d.arbiarate_playcoin_sender_id = now;
+         d.source.append(reason); //你的订单已经被仲裁放币，XX后生效，如有异议，请发起终审
+      });
+
+      //放币XX后生效
+
       transaction t{};
+
       t.actions.emplace_back(
           permission_level(_self, name{"active"}),
           _self,
-          name{"grtcancel"},
-          std::make_tuple(pair, who, deal_id, reason));
+          name{"defcmdeal"},
+          std::make_tuple(pair, who, deal_id, DEAL_STATUS_PAID_PLAYCOIN_ING, "放币中"));
 
       auto itr_pair = get_market(pair);
 
-      t.delay_sec = itr_pair->def_cancel_time;
+      t.delay_sec = itr_pair->pay_timeout;
 
-      t.send(current_time_point().sec_since_epoch(), _self);
+      t.send(now, _self);
 
       print("Sent with a delay of ", t.delay_sec);
+   }
+
+   //终审这提交deal
+
+   //终审者提交订单
+   ACTION judgecmdeal(name judger, const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason)
+   {
+      //终审判定这个单被取消了
+      require_auth(judger);
+
+      //修改订单的状态为 DEAL_STATUS_PAID_ARBIARATE_CANCEL
+
+      deal_index_t dealtable_(_self, name{pair.to_string()}.value);
+      auto it = dealtable_.require_find(deal_id, "吃单找不到");
+
+      check(it->status == DEAL_STATUS_PAID_ARBIARATE_CANCEL || it->status == DEAL_STATUS_PAID_ARBIARATE_PALYCOIN, "只有经过仲裁了才能发起终审");
+
+      uint8_t old_status = it->status;
+
+      auto now = current_time_point().sec_since_epoch();
+
+      //仲裁也是放币，终
+      if (old_status == DEAL_STATUS_PAID_ARBIARATE_PALYCOIN)
+      {
+         //什么都不做，等待之前判定为取消状态的订单定时取放币
+         return;
+      }
+
+      //之前的仲裁结果被推翻
+
+      if (old_status == DEAL_STATUS_PAID_ARBIARATE_CANCEL)
+      {
+         //之前是仲裁放币，先取消异步放币事务，在反向rollback
+         int rescode = cancel_deferred(it->arbiarate_cancel_sender_id);
+         //发送一个robackaction
+         if (rescode == 1)
+         {
+            commitdeal(pair, who, deal_id, DEAL_STATUS_PAID_PLAYCOIN_ING, reason);
+         }
+         else if (rescode == 0)
+         {
+            print("之前的仲裁取消放币异步事务找不到了，重大bug，测试要注意");
+         }
+      }
    }
 
    inline static uint8_t side_to_uint(const std::string &side)
