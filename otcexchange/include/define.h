@@ -15,15 +15,15 @@
 #define DEAL_STATUS_UNPAID_TIMEOUT_CANCEL 12 //未付款超时取消
 
 #define DEAL_STATUS_PAID_WAIT_PLAYCOIN 20 //已付款等待放币
-#define DEAL_STATUS_PAID_AD_APPEAL 21     //已付款待放币(买卖方都可以申述)广告方申诉
-#define DEAL_STATUS_PAID_DEAL_APPEAL 22   //已付款待放币(买卖方都可以申述)吃单方申诉
-#define DEAL_STATUS_PAID_ALL_APPEAL 23    //已付款待放币(买卖方都可以申述)双方申诉
+#define DEAL_STATUS_PAID_APPEAL_ASK 21    //已付款待放币(买卖方都可以申述)广告方申诉
+#define DEAL_STATUS_PAID_APPEAL_BID 22    //已付款待放币(买卖方都可以申述)吃单方申诉
+#define DEAL_STATUS_PAID_APPEAL_ALL 23    //已付款待放币(买卖方都可以申述)双方申诉
 
 #define DEAL_STATUS_PAID_ARBIARATE_ING 24      //已付款待放币仲裁中
 #define DEAL_STATUS_PAID_ARBIARATE_CANCEL 25   //已付款待放币仲裁取消结果，合约修改的
 #define DEAL_STATUS_PAID_ARBIARATE_PALYCOIN 26 //已付款待放币仲裁放币结果，合约修改
 
-#define DEAL_STATUS_PAID_PLAYCOIN_ING 27 //放币中
+#define DEAL_STATUS_PAID_PLAYCOIN_ING 27 //自己放币中
 
 #define DEAL_STATUS_PAID_JUDGE_CANCEL 28   //终审结果为取消放币
 #define DEAL_STATUS_PAID_JUDGE_PLAYCOIN 29 //终审结果为放币
