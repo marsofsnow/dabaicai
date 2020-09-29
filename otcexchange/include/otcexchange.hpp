@@ -57,10 +57,13 @@ private:
 
    TABLE arbiter
    {
-      name account;      //EOS账户
-      asset balance;     //代币余额
-      uint32_t win_num;  //胜利数
-      uint32_t fail_num; //失败数
+      name account;                   //EOS账户
+      asset balance;                  //代币余额
+      uint32_t arbit_num;             //仲裁总场次
+      uint32_t win_num;               //仲裁胜利场次
+      bool is_arbit;                  //是否正在仲裁
+      time_point_sec online_beg_time; //在线开始时间
+      time_point_sec online_end_time; //在线失败时间
       uint64_t primary_key() const { return account.value; }
    };
 
@@ -83,7 +86,8 @@ private:
    //scope是pair ,一个交易对里面的deal_id 是唯一的
    TABLE appeal
    {
-      uint64_t id;            //作为主键 =deal_id
+      uint64_t id; //作为主键 =deal_id
+      uint64_t deal_id;
       symbol_code pair;       //交易对
       uint8_t initiator_side; //发起者是买还是卖
       time_point_sec ctime;   //创建时间
@@ -97,10 +101,63 @@ private:
       std::vector<std::string> ask_attachments; //卖币方的附件，附件可能是url或者ipfs hash
       std::string source;
       uint64_t primary_key() const { return id; }
-      EOSLIB_SERIALIZE(appeal, (pair)(initiator_side)(bid_user)(ask_user)(ctime)(utime)(bid_content)(ask_content)(bid_attachments)(ask_attachments)(source))
+      EOSLIB_SERIALIZE(appeal, (id)(deal_id)(pair)(initiator_side)(bid_user)(ask_user)(ctime)(utime)(bid_content)(ask_content)(bid_attachments)(ask_attachments)(source))
    };
 
    using appeal_index_t = multi_index<"appealtable"_n, appeal>;
+
+   //scope 是pair，仲裁订单
+   TABLE arborder
+   {
+      uint64_t id;          //仲裁id,实际==deal id
+      time_point_sec ctime; //创建时间
+      time_point_sec utime; //更新时间
+      symbol_code pair;     //交易对
+      uint64_t appeal_id;   //申诉材料id
+      uint64_t deal_id;
+      uint8_t initiator_side;                  //发起者是买还是卖
+      asset amount;                            //仲裁数量
+      asset price;                             //仲裁价格
+      asset quota;                             //终金额
+      std::vector<name> vec_arbiter;           //仲裁员成员
+      std::map<name, uint8_t> map_person_pick; //每个人的仲裁结果
+      asset arbitrate_fee;                     //仲裁手续费
+
+      uint16_t person_num; //仲裁员人数
+      uint16_t yes_num;    //同意放币
+      uint16_t no_num;     //取消
+      uint8_t status;      //仲裁进度
+      std::string source;
+
+      uint64_t primary_key() const { return id; }
+      EOSLIB_SERIALIZE(arborder, (id)(ctime)(utime)(pair)(appeal_id)(deal_id)(initiator_side)(amount)(price)(quota)(vec_arbiter)(map_person_pick)(arbitrate_fee)(person_num)(yes_num)(no_num)(status)(source))
+   };
+
+   using arborder_index_t = multi_index<"arbordertable"_n, arborder>;
+
+   ///每个人的仲裁记录就是deal了,
+   //scope 是每个用户，也就是说这个表保存的是一个用户的数据
+
+   TABLE arblog
+   {
+      uint64_t id;          //自增主键
+      time_point_sec ctime; //创建时间
+      time_point_sec utime; //更新时间
+
+      symbol_code pair;
+      uint64_t arbitrate_id; //仲裁id
+      uint64_t deal_id;      //订单id
+      uint64_t appeal_id;    //申诉id
+
+      uint8_t self_arbit;  //我的仲裁结果
+      uint8_t final_arbit; //实际仲裁结果
+
+      asset labor_fee;    //劳务费
+      uint8_t status;     //1.仲裁收入 2.待结算 午夜12点结算 3.恶意仲裁 扣押金
+      std::string source; //备注
+   };
+
+   using arblog_index_t = multi_index<"arblogtable"_n, arblog>;
 
    //上传材料和申诉
    ACTION putappeal(name who,
@@ -167,8 +224,102 @@ private:
          dealtable_.modify(itr_deal, _self, [&side_uint](deal &d) {
             d.status = (side_uint == MARKET_ORDER_SIDE_ASK) ? DEAL_STATUS_PAID_APPEAL_ASK : DEAL_STATUS_PAID_APPEAL_BID;
          });
+
+         //新增一个申诉，这个时候要生成一个仲裁订单，然后这个订单下面又有很多仲裁log，来记录仲裁员的仲裁记录
+         /*
+         *  uint64_t id;          //仲裁id,实际==deal id
+            time_point_sec ctime; //创建时间
+            time_point_sec utime; //更新时间
+            symbol_code pair;     //交易对
+            uint64_t appeal_id;   //申诉材料id
+            uint64_t deal_id;
+            uint8_t initiator_side;                  //发起者是买还是卖
+            asset amount;                            //仲裁数量
+            asset price;                             //仲裁价格
+            asset quota;                             //终金额
+            std::vector<name> vec_arbiter;           //仲裁员成员
+            std::map<name, uint8_t> map_person_pick; //每个人的仲裁结果
+            asset arbitrate_fee;                     //仲裁手续费
+
+            uint16_t person_num; //仲裁员人数
+            uint16_t yes_num;    //同意放币
+            uint16_t no_num;     //取消
+            uint8_t status;      //仲裁进度
+            std::string source;
+         */
+
+         //算出哪些可以当做仲裁员
+
+         std::vector<name> arbiters;
+         //在线时间
+         //有无正在进行的仲裁订单
+         //仲裁胜利场数
+         //仲裁胜利率 =仲裁胜利场次/仲裁总场次
+
+         arborder_index_t arbs(_self, name{pair.to_string()}.value); //订单表
+
+         auto itr_pair = get_market(pair);
+
+         arbs.emplace(_self, [&](arborder &a) {
+            a.id = deal_id;
+            a.ctime = time_point_sec(current_time_point().sec_since_epoch());
+            a.utime = a.ctime;
+            a.pair = pair;
+            a.appeal_id = deal_id;
+            a.deal_id = deal_id;
+            a.initiator_side = side_uint;
+            a.amount = itr_deal->amount;
+            a.price = itr_deal->price;
+            a.quota = itr_deal->quota;
+            a.arbitrate_fee = itr_pair->zero_stock;
+            a.vec_arbiter = arbiters;
+            a.person_num = a.vec_arbiter.size();
+            a.yes_num = 0;
+            a.no_num = 0;
+
+            a.status = ARBDEAL_STATUS_CREATED;
+            a.source.append(source);
+         });
+
+         //往每个仲裁员仲裁log表里投递任务
+         /*
+         * uint64_t id;          //自增主键
+         time_point_sec ctime; //创建时间
+         time_point_sec utime; //更新时间
+
+         symbol_code pair;
+         uint64_t arbitrate_id; //仲裁id
+         uint64_t deal_id;      //订单id
+         uint64_t appeal_id;    //申诉id
+
+         uint8_t self_arbit;  //我的仲裁结果
+         uint8_t final_arbit; //实际仲裁结果
+
+         asset labor_fee;    //劳务费
+         uint8_t status;     //1.仲裁收入 2.待结算 午夜12点结算 3.恶意仲裁 扣押金
+         std::string source; //备注
+         */
+
+         for (auto arbiter : arbiters)
+         {
+            arblog_index_t arblogs(_self, arbiter.value); //表名，按用户分表，不是按pair分表
+            arblogs.emplace(_self, [&](arblog &log) {
+               log.id = arblogs.available_primary_key();
+               log.ctime = time_point_sec(current_time_point().sec_since_epoch());
+               log.utime = log.ctime;
+               log.pair = pair;
+               log.arbitrate_id = deal_id;
+               log.deal_id = deal_id;
+               log.appeal_id = deal_id;
+               log.self_arbit = ARBIT_UNKOWN;
+               log.final_arbit = ARBIT_UNKOWN;
+               log.labor_fee = itr_pair->zero_stock;
+               log.status = ARBDEAL_STATUS_CREATED;
+               log.source = source;
+            });
+         }
       }
-      else
+      else //对手房已经上传过申诉材料
       {
          check((itr_appeal->initiator_side == MARKET_ORDER_SIDE_ASK && side_uint == MARKET_ORDER_SIDE_BID) ||
                    (itr_appeal->initiator_side == MARKET_ORDER_SIDE_BID && side_uint == MARKET_ORDER_SIDE_ASK),
@@ -196,7 +347,6 @@ private:
          });
       }
    }
-
 
    //交易对 ADXCNY
    TABLE market

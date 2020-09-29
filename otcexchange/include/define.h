@@ -34,6 +34,28 @@
 #define MARKET_STATUS_ON 1  //允许交易
 #define MARKET_STATUS_OFF 2 //不允许交易
 
+//仲裁指令
+
+#define ARBIT_UNKOWN 0
+#define ARBIT_YES 1
+#define ARBIT_NO 2
+
+//仲裁订单的状态
+#define ARBDEAL_STATUS_CREATED 1
+#define ARBORDER_STATUS_STARTED 2
+#define ARBORDER_STATUS_YES 1
+#define ARBORDER_STATUS_NO 1
+#define ARBORDER_STATUS_NO_JUDGE_OVER 1
+#define ARBORDER_STATUS_JUDGE_STARTED 1
+#define ARBORDER_STATUS_JUDGE_YES 1
+#define ARBORDER_STATUS_JUDGE_NO 1
+#define ARBORDER_STATUS_JUDGE_OVER 1
+
+//仲裁状态,在仲裁流水里显示
+#define ARBITLOG_STATUS_WAIT 1   //等待仲裁
+#define ARBITLOG_STATUS_PAYED 2  //仲裁结果出来了，已结算,非恶意仲裁
+#define ARBITLOG_STATUS_ANIMUS 3 //仲裁结果出来了，恶意仲裁
+
 #define MARKET_STATUS_ON_STR "allow trade"      //允许交易
 #define MARKET_STATUS_OFF_STR "not allow trade" //不允许交易
 
