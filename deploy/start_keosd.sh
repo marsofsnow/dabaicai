@@ -12,6 +12,8 @@ fi
 --http-server-address 127.0.0.1:16666 \
 --unlock-timeout 999999999  \
 --wallet-dir ${WALLET_PATH} \
+--access-control-allow-origin='*'  \
+--verbose-http-errors \
 >> ${WALLET_PATH}"/keosd.log" 2>&1 & \
 echo $! > ${WALLET_PATH}"/keosd.pid" 
 

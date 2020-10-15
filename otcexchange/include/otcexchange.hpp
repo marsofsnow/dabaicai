@@ -20,7 +20,7 @@ CONTRACT otcexchange : public contract
 public:
    using contract::contract;
    otcexchange(name self, name first_receiver, datastream<const char *> ds) : contract(self, first_receiver, ds),
-                                                                              markettable_(self, self.value),
+                                                                              markets_(self, self.value),
                                                                               users_(self, self.value),
                                                                               arbiters_(self, self.value),
                                                                               judgers_(self, self.value)
@@ -52,22 +52,23 @@ private:
       uint64_t primary_key() const { return account.value; }
    };
 
-   using user_index_t = multi_index<"usertable"_n, user>;
+   using user_index_t = multi_index<"users"_n, user>;
    user_index_t users_;
 
    TABLE arbiter
    {
-      name account;                   //EOS账户
+      name account;                   //EOS账户，仲裁者
       asset balance;                  //代币余额
       uint32_t arbit_num;             //仲裁总场次
-      uint32_t win_num;               //仲裁胜利场次
-      bool is_arbit;                  //是否正在仲裁
+      uint32_t right_num;             //仲裁胜利场次
+      bool is_arbiting;               //是否正在仲裁中
       time_point_sec online_beg_time; //在线开始时间
-      time_point_sec online_end_time; //在线失败时间
+      time_point_sec online_end_time; //在线结束时间
       uint64_t primary_key() const { return account.value; }
+      uint64_t get_secondary_status() const { return is_arbiting; }
    };
 
-   using arbiter_index_t = multi_index<"arbitertable"_n, arbiter>;
+   using arbiter_index_t = multi_index<"arbiters"_n, arbiter, indexed_by<"bystatus"_n, const_mem_fun<arbiter, uint64_t, &arbiter::get_secondary_status>>>;
    arbiter_index_t arbiters_;
 
    TABLE judger
@@ -80,7 +81,7 @@ private:
       uint64_t primary_key() const { return account.value; }
    };
 
-   using judger_index_t = multi_index<"judgertable"_n, judger>;
+   using judger_index_t = multi_index<"judgers"_n, judger>;
    judger_index_t judgers_;
 
    //scope是pair ,一个交易对里面的deal_id 是唯一的
@@ -104,7 +105,7 @@ private:
       EOSLIB_SERIALIZE(appeal, (id)(deal_id)(pair)(initiator_side)(bid_user)(ask_user)(ctime)(utime)(bid_content)(ask_content)(bid_attachments)(ask_attachments)(source))
    };
 
-   using appeal_index_t = multi_index<"appealtable"_n, appeal>;
+   using appeal_index_t = multi_index<"appeals"_n, appeal>;
 
    //scope 是pair，仲裁订单
    TABLE arborder
@@ -133,18 +134,18 @@ private:
       EOSLIB_SERIALIZE(arborder, (id)(ctime)(utime)(pair)(appeal_id)(deal_id)(initiator_side)(amount)(price)(quota)(vec_arbiter)(map_person_pick)(arbitrate_fee)(person_num)(yes_num)(no_num)(status)(source))
    };
 
-   using arborder_index_t = multi_index<"arbordertable"_n, arborder>;
+   using arbadorder_index_t = multi_index<"arborders"_n, arborder>;
 
    ///每个人的仲裁记录就是deal了,
    //scope 是每个用户，也就是说这个表保存的是一个用户的数据
 
-   TABLE arblog
+   TABLE arbtask
    {
       uint64_t id;          //自增主键
       time_point_sec ctime; //创建时间
       time_point_sec utime; //更新时间
 
-      symbol_code pair;
+      symbol_code pair;      //可以按pair过滤
       uint64_t arbitrate_id; //仲裁id
       uint64_t deal_id;      //订单id
       uint64_t appeal_id;    //申诉id
@@ -155,10 +156,12 @@ private:
       asset labor_fee;    //劳务费
       uint8_t status;     //1.仲裁收入 2.待结算 午夜12点结算 3.恶意仲裁 扣押金
       std::string source; //备注
+      uint64_t primary_key() const { return id; }
    };
 
-   using arblog_index_t = multi_index<"arblogtable"_n, arblog>;
+   using arbtask_index_t = multi_index<"arbtasks"_n, arbtask>;
 
+public:
    //上传材料和申诉
    ACTION putappeal(name who,
                     const std::string &side,
@@ -256,7 +259,7 @@ private:
          //仲裁胜利场数
          //仲裁胜利率 =仲裁胜利场次/仲裁总场次
 
-         arborder_index_t arbs(_self, name{pair.to_string()}.value); //订单表
+         arbadorder_index_t arbs(_self, name{pair.to_string()}.value); //订单表
 
          auto itr_pair = get_market(pair);
 
@@ -302,9 +305,9 @@ private:
 
          for (auto arbiter : arbiters)
          {
-            arblog_index_t arblogs(_self, arbiter.value); //表名，按用户分表，不是按pair分表
-            arblogs.emplace(_self, [&](arblog &log) {
-               log.id = arblogs.available_primary_key();
+            arbtask_index_t arbtasks(_self, arbiter.value); //表名，按用户分表，不是按pair分表
+            arbtasks.emplace(_self, [&](arbtask &log) {
+               log.id = arbtasks.available_primary_key();
                log.ctime = time_point_sec(current_time_point().sec_since_epoch());
                log.utime = log.ctime;
                log.pair = pair;
@@ -348,114 +351,73 @@ private:
       }
    }
 
-   //交易对 ADXCNY
+private:
+   //  =======================================================markets========================================================
+private:
    TABLE market
    {
       symbol_code pair;                  //交易对
       symbol stock;                      //coin 需要指定[代币精度,代币符号]
-      symbol money;                      //fiat 需要指定[法币精度，法币符合]
-      asset taker_fee_rate;              // taker手续费费率[数量，代币精度，代币符号]
-      asset maker_fee_rate;              // maker手续费费率[数量，代币精度，代币符号]
+      symbol money;                      //fiat 需要指定[法币精度,法币符合]
+      asset taker_fee_rate;              // taker手续费费率[数量,代币精度，代币符号]
+      asset maker_fee_rate;              // maker手续费费率[数量,代币精度，代币符号]
       asset amount_min;                  // 限定的最小交易数量  [数量，代币精度，代币符号]
       asset amount_max;                  // 限定的最大交易数量  [数量，代币精度，代币符号]
       asset price_min;                   // 限定的最小交易价格  [数量，代币精度，代币符号]
       asset price_max;                   // 限定的最大交易价格  [数量，代币精度，代币符号]
       asset zero_stock;                  //代币的0值
       asset zero_money;                  //法币的0值
+      asset zero_rate;                   //费率的0值
       uint32_t pay_timeout;              //买币方支付法币的超时时间,精确到s
       uint32_t self_playcoin_time;       //自己放币延迟时间
-      uint32_t def_cancel_time;          //初次仲裁取消，延迟取消的时间,精确到s
-      uint32_t def_playcoin_time;        //初次仲裁通过，延迟放币的时间,精确到s
+      uint32_t def_cancel_time;          //初次仲裁取消，延迟取消的时间,精确到s,这段时间用户可以发起终审
+      uint32_t def_playcoin_time;        //初次仲裁通过，延迟放币的时间,精确到s，这段时间用户可以发起终审
       uint32_t cancel_ad_num;            //允许用户取消广告单次数
       uint8_t status = MARKET_STATUS_ON; //交易对是否允许交易
       std::string str_status;
+      std::string nickname; //昵称
       time_point_sec ctime{current_time_point().sec_since_epoch()};
       time_point_sec utime{current_time_point().sec_since_epoch()};
 
       uint64_t primary_key() const { return pair.raw(); }
       uint64_t get_secondary_status() const { return status; } // sort by status，按交易对状态过滤
-
-      EOSLIB_SERIALIZE(market, (pair)(stock)(money)(taker_fee_rate)(maker_fee_rate)(amount_min)(amount_max)(price_min)(price_max)(status)(str_status)(ctime)(utime))
    };
 
-   using market_index_t = multi_index<"markettable"_n,
+   using market_index_t = multi_index<"markets"_n,
                                       market,
                                       indexed_by<"bystatus"_n, const_mem_fun<market, uint64_t, &market::get_secondary_status>>>;
-   market_index_t markettable_; //属于合约，scope是全表
 
-   //广告挂单
-   TABLE adorder
+   using market_iter_t = market_index_t::const_iterator;
+
+   market_index_t markets_; //属于合约，scope是全表
+
+   inline market_iter_t get_open_market(const symbol_code &pair) //
    {
-      uint64_t id;                    //广告订单id，自增主键,scope = pair+side.相当于盘口,卖盘，由小到大，买盘由大到小
-      name user;                      //广告订单所属用户，注意是name类型
-      symbol_code pair;               //广告订单的交易对
-      time_point ctime;               //广告订单创建时间，精确到微秒
-      time_point utime;               //广告订单更新时间，精确到微秒
-      uint8_t status;                 //广告订单状态，吃单和挂单的状态不同
-      uint8_t side;                   //买卖类型，1卖 2买
-      uint8_t type;                   //广告订单类型，1限价 2市价
-      uint8_t role;                   //广告订单类型，1挂单 2吃单
-      asset price;                    //广告订单交易价格
-      asset amount;                   //广告订单交易数量
-      asset amount_min;               //广告订单最小成交数量
-      asset amount_max;               //广告订单最大成交数量
-      asset taker_fee_rate;           //吃单的手续费率
-      asset maker_fee_rate;           //挂单的手续费率
-      asset left;                     //剩余多少数量未成交
-      asset freeze;                   //冻结的stock或者money,处于正在交易中,只有卖币挂单才有值
-      asset deal_fee;                 //累计的交易手续费
-      asset deal_stock;               //累计的交易sotck数量
-      asset deal_money;               //累计的交易money
-      std::string source;             //备注信息，广告订单来源
-      std::vector<uint64_t> vec_deal; //成交明细，因为一个广告订单可以被很多人来交易
+      auto it = markets_.require_find(pair.raw(), ERR_MSG_CHECK_FAILED(50110, pair.to_string().append(ERR_MSG_PAIR_NOT_EXIST)).c_str());
+      check(it->status == MARKET_STATUS_ON, ERR_MSG_CHECK_FAILED(50111, pair.to_string().append(ERR_MSG_PAIR_NOT_ALLOW_TRADE)));
+      return it;
+   }
 
-      uint64_t primary_key() const { return id; }                   // primary key auto increase
-      uint64_t get_secondary_user() const { return user.value; }    // sort by user name，按用户名过滤
-      uint64_t get_secondary_price() const { return price.amount; } // sort by price, ask increase bid of deincrease
-   };
-   using order_index_t = multi_index<"adordertable"_n,
-                                     adorder,
-                                     indexed_by<"byuser"_n, const_mem_fun<adorder, uint64_t, &adorder::get_secondary_user>>,
-                                     indexed_by<"byprice"_n, const_mem_fun<adorder, uint64_t, &adorder::get_secondary_price>>
-
-                                     >;
-
-   //此表属于合约,scope是交易对,
-   TABLE deal
+   inline market_iter_t get_close_market(const symbol_code &pair) //
    {
-      uint64_t id; //deal id scope全局唯一，自增id
-      name user;
-      uint8_t side; //taker是买还是卖
+      auto it = markets_.require_find(pair.raw(), ERR_MSG_CHECK_FAILED(50110, pair.to_string().append(ERR_MSG_PAIR_NOT_EXIST)).c_str());
+      check(it->status == MARKET_STATUS_OFF, ERR_MSG_CHECK_FAILED(50111, pair.to_string().append(ERR_MSG_PAIR_NOT_ALLOW_TRADE)));
+      return it;
+   }
 
-      uint8_t type;                          //广告订单类型，1限价 2市价
-      uint8_t role;                          //广告订单类型，1挂单 2吃单
-      time_point ctime;                      //创建时间
-      time_point utime;                      //更新时间
-      name maker_user;                       //对手方
-      uint64_t maker_order_id;               //对手方广告订单id
-      asset price;                           //成交价
-      asset amount;                          //成交数量
-      asset quota;                           //成交额price*amount
-      asset ask_fee;                         //收取的卖方手续费
-      asset bid_fee;                         //收取的买方手续费
-      uint8_t status;                        //成交的状态
-      uint32_t pay_timeout;                  //支付超时时间,
-      uint64_t pay_timeout_sender_id;        //异步事物id
-      uint64_t self_playcoin_sender_id;      //异步事物id
-      uint64_t arbiarate_cancel_sender_id;   //异步事物idARBIARATE
-      uint64_t arbiarate_playcoin_sender_id; //异步事物id
-      symbol_code pair;                      //交易对
-      std::string source;                    //备注信息，仲裁信息等
-
-      uint64_t primary_key() const { return id; }
-      uint64_t get_secondary_user() const { return user.value; }
-   };
-
-   using deal_index_t = multi_index<"dealtable"_n,
-                                    deal,
-                                    indexed_by<"byuser"_n, const_mem_fun<deal, uint64_t, &deal::get_secondary_user>>
-
-                                    >;
+   inline market_iter_t get_market(const symbol_code &pair) //
+   {
+      auto it = markets_.require_find(pair.raw(), ERR_MSG_CHECK_FAILED(50110, pair.to_string().append(ERR_MSG_PAIR_NOT_EXIST)).c_str());
+      return it;
+   }
+   inline void erase_markets()
+   {
+      auto it = markets_.begin();
+      while (it != markets_.end())
+      {
+         it = markets_.erase(it);
+      }
+   }
 
 public:
    ACTION newmarket(const symbol &stock,
@@ -474,7 +436,146 @@ public:
 
    ACTION closemarket(const symbol_code &pair); //交易对禁止交易
    ACTION openmarket(const symbol_code &pair);  //交易对放开交易
+   ACTION rmmarket(const symbol_code &pair);
+   ACTION rmmarkets();
 
+   // =======================================================adorder========================================================
+   // 交易对 ADXCNY
+private:
+   //广告挂单
+   TABLE adorder
+   {
+      uint64_t id;                    //广告订单id，自增主键,scope = pair+side.相当于盘口,卖盘，由小到大，买盘由大到小
+      name user;                      //广告订单所属用户，注意是name类型
+      symbol_code pair;               //广告订单的交易对
+      time_point ctime;               //广告订单创建时间，精确到微秒
+      time_point utime;               //广告订单更新时间，精确到微秒
+      uint8_t status;                 //广告订单状态，吃单和挂单的状态不同
+      uint8_t side;                   //买卖类型，1卖 2买
+      uint8_t type;                   //广告订单类型，1限价 2市价
+      uint8_t role;                   //广告订单类型，1挂单 2吃单
+      asset price;                    //广告订单交易价格
+      asset amount;                   //广告订单交易数量
+      asset amount_min;               //广告订单最小成交数量
+      asset amount_max;               //广告订单最大成交数量
+      asset taker_fee_rate;           //吃单的手续费率(只展示使用)
+      asset maker_fee_rate;           //挂单的手续费率（只展示使用）
+      asset left;                     //剩余多少数量未成交
+      asset freeze;                   //冻结的stock或者money,处于正在交易中,只有卖币挂单才有值
+      asset deal_fee;                 //累计的交易手续费
+      asset deal_stock;               //累计的交易sotck数量
+      asset deal_money;               //累计的交易money
+      std::string source;             //备注信息，广告订单来源
+      std::vector<uint64_t> vec_deal; //成交明细，因为一个广告订单可以被很多人来交易
+
+      uint64_t primary_key() const { return id; }                   // primary key auto increase
+      uint64_t get_secondary_user() const { return user.value; }    // sort by user name，按用户名过滤
+      uint64_t get_secondary_price() const { return price.amount; } // sort by price, ask increase bid of deincrease
+      uint8_t update_ad_status(market_iter_t itr_pair)
+      {
+         //每次广告可交易数量变动后,对广告进行判断
+         if (status == AD_STATUS_ONTHESHELF)
+         { //广告为上架中
+
+            if (left < itr_pair->amount_min)
+            { //变动后交易数量小于交易对的最小交易数量时,状态改为自动下架
+               status = AD_STATUS_AUT_OFFTHESHELF;
+            }
+         }
+         else if (status == AD_STATUS_AUT_OFFTHESHELF) //如果是自动下架,比如吃单方撤单了
+         {
+            if (left >= itr_pair->amount_min) //自动下架且可交易数量>=交易对配置的最小交易数量时,状态改为上架中
+            {
+               status = AD_STATUS_ONTHESHELF; //改为上架中
+            }
+            else if (left + freeze < itr_pair->amount_min) //自动下架且可交易数量+冻结数量<交易对最小交易数量时，状态改为已完成
+            {
+               status = AD_STATUS_FINISHED; //已完成
+            }
+         }
+
+         return status;
+      }
+   };
+   using adorder_index_t = multi_index<"adorders"_n,
+                                       adorder,
+                                       indexed_by<"byuser"_n, const_mem_fun<adorder, uint64_t, &adorder::get_secondary_user>>,
+                                       indexed_by<"byprice"_n, const_mem_fun<adorder, uint64_t, &adorder::get_secondary_price>>
+
+                                       >;
+
+   using adorder_iter_t = adorder_index_t::const_iterator;
+
+   inline static uint8_t side_to_uint(const std::string &side)
+   {
+      if (side == "ask")
+         return MARKET_ORDER_SIDE_ASK;
+      if (side == "bid")
+         return MARKET_ORDER_SIDE_BID;
+      return 0;
+   }
+
+   inline static uint8_t role_to_uint(const std::string &role)
+   {
+      if (role == "mk")
+         return MARKET_ROLE_MAKER;
+      if (role == "tk")
+         return MARKET_ROLE_TAKER;
+      return MARKET_ROLE_INVAID;
+   }
+   inline static uint8_t update_ad_status(adorder & ad, market_iter_t itr_pair)
+   {
+      //每次广告可交易数量变动后,对广告进行判断
+      if (ad.status == AD_STATUS_ONTHESHELF)
+      { //广告为上架中
+
+         if (ad.left < itr_pair->amount_min)
+         { //变动后交易数量小于交易对的最小交易数量时,状态改为自动下架
+            ad.status = AD_STATUS_AUT_OFFTHESHELF;
+         }
+      }
+      else if (ad.status == AD_STATUS_AUT_OFFTHESHELF) //如果是自动下架,比如吃单方撤单了
+      {
+         if (ad.left >= itr_pair->amount_min) //自动下架且可交易数量>=交易对配置的最小交易数量时,状态改为上架中
+         {
+            ad.status = AD_STATUS_ONTHESHELF; //改为上架中
+         }
+         else if (ad.left + ad.freeze < itr_pair->amount_min) //自动下架且可交易数量+冻结数量<交易对最小交易数量时，状态改为已完成
+         {
+            ad.status = AD_STATUS_FINISHED; //已完成
+         }
+      }
+
+      return ad.status;
+   }
+
+   inline adorder_index_t get_adtable(const symbol_code &pair, const std::string &side)
+   {
+      check((side == MARKET_ORDER_SIDE_ASK_STR || side == MARKET_ORDER_SIDE_BID_STR), SIDE_INVALID_STR);
+      std::string scope = pair.to_string() + MARKET_ROLE_MAKER_STR + side;
+      transform(scope.begin(), scope.end(), scope.begin(), ::tolower); //转成小写
+      return adorder_index_t(_self, name{scope}.value);
+   }
+
+   inline adorder_iter_t get_adorder(const symbol_code &pair, const std::string &side, uint64_t ad_id)
+   {
+
+      auto adtable_ = get_adtable(pair, side);
+      auto it = adtable_.require_find(ad_id, ERR_MSG_AD_NOT_EXIST);
+      return it;
+   }
+
+   inline void erase_adorders(const symbol_code &pair, const std::string &side)
+   {
+      auto adtable_ = get_adtable(pair, side);
+      auto it = adtable_.begin();
+      while (it != adtable_.end())
+      {
+         it = adtable_.erase(it);
+      }
+   }
+
+public:
    //发布广告单
    ACTION putadorder(const symbol_code &pair,
                      const std::string &side,
@@ -485,7 +586,7 @@ public:
                      asset amount_max,
                      const std::string &source);
 
-   //下架广告单
+   //手动下架广告单
 
    ACTION offselfad(const symbol_code &pair,
                     const std::string &side,
@@ -500,8 +601,71 @@ public:
                      asset amount,
                      uint64_t ad_id,
                      const std::string &source);
+   ACTION rmad(const symbol_code &pair, const std::string &side, uint64_t ad_id)
+   {
+      require_auth(get_self()); //只有合约才能删除广告订单
+      auto adtable_ = get_adtable(pair, side);
+      auto it = adtable_.require_find(ad_id, ERR_MSG_AD_NOT_EXIST);
+      adtable_.erase(it);
+   }
 
-   //otc 手动和超时取消
+   ACTION rmads(const symbol_code &pair, const std::string &side)
+   {
+      require_auth(get_self()); //只有合约才能删除广告订单
+      erase_adorders(pair, side);
+   }
+
+   // =======================================================deal========================================================
+
+private:
+   //此表属于合约,scope是交易对,
+   TABLE deal
+   {
+      uint64_t id; //deal id  自增id
+      name user;
+      uint8_t side;                          //taker是买还是卖
+      uint8_t type;                          //广告订单类型，1限价 2市价
+      uint8_t role;                          //广告订单类型，1挂单 2吃单
+      time_point ctime;                      //创建时间
+      time_point utime;                      //更新时间
+      name maker_user;                       //对手方
+      uint64_t maker_order_id;               //对手方广告订单id
+      asset price;                           //成交价
+      asset amount;                          //成交数量
+      asset quota;                           //成交额price*amount
+      asset ask_fee;                         //收取的卖方手续费
+      asset bid_fee;                         //收取的买方手续费
+      uint8_t status;                        //成交的状态
+      uint32_t pay_timeout;                  //支付超时时间,
+      uint64_t pay_timeout_sender_id;        //异步事物id
+      uint64_t self_playcoin_sender_id;      //异步事物id
+      uint64_t arbiarate_cancel_sender_id;   //异步事物idARBIARATE
+      uint64_t arbiarate_playcoin_sender_id; //异步事物id
+      symbol_code pair;                      //交易对
+      uint8_t fiat_pay_method;               //法币支付方式
+      std::string fiat_account;              //法币帐号,保存的是加密后的信息
+      std::string source;                    //备注信息，仲裁信息等
+
+      uint64_t primary_key() const { return id; }
+      uint64_t get_secondary_user() const { return user.value; }
+   };
+
+   using deal_index_t = multi_index<"deals"_n,
+                                    deal,
+                                    indexed_by<"byuser"_n, const_mem_fun<deal, uint64_t, &deal::get_secondary_user>>
+
+                                    >;
+
+   void erase_deals(const symbol_code &pair)
+   {
+      deal_index_t dealtable_(_self, name{pair.to_string()}.value);
+      auto it = dealtable_.begin();
+
+      while (it != dealtable_.end())
+      {
+         it = dealtable_.erase(it);
+      }
+   }
 
    void rollbackdeal(const symbol_code &pair,
                      name who,
@@ -521,11 +685,11 @@ public:
                       deal_index_t::const_iterator itr_deal,
                       uint8_t status,
                       const std::string &reason); //放币操作
-   void commitdeal(const symbol_code &pair,
-                   name who,
-                   uint64_t deal_id,
-                   uint8_t status,
-                   const std::string &reason);
+   void commizztdeal(const symbol_code &pair,
+                     name who,
+                     uint64_t deal_id,
+                     uint8_t status,
+                     const std::string &reason);
 
    //1.手动取消待支付的订单
    //手动取消：买币方待支付->待支付取消完成
@@ -533,6 +697,21 @@ public:
    //仲裁取消：仲裁中->仲裁取消中->取消完成
    //终审取消：仲裁放币/取消->终审取消中->取消完成
 
+public:
+   ACTION rmdeal(const symbol_code &pair, uint64_t id)
+   {
+      require_auth(get_self());
+      deal_index_t dealtable_(_self, name{pair.to_string()}.value);
+      auto it = dealtable_.require_find(id, "吃单找不到");
+      dealtable_.erase(it);
+   }
+
+   ACTION rmdeals(const symbol_code &pair)
+   {
+      require_auth(get_self());
+      erase_deals(pair);
+   }
+   //手动取消交易
    ACTION mancldeal(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason)
    {
       //
@@ -786,78 +965,6 @@ public:
       }
    }
 
-   inline static uint8_t side_to_uint(const std::string &side)
-   {
-      if (side == "ask")
-         return MARKET_ORDER_SIDE_ASK;
-      if (side == "bid")
-         return MARKET_ORDER_SIDE_BID;
-      return 0;
-   }
-
-   inline static uint8_t role_to_uint(const std::string &role)
-   {
-      if (role == "mk")
-         return MARKET_ROLE_MAKER;
-      if (role == "tk")
-         return MARKET_ROLE_TAKER;
-      return MARKET_ROLE_INVAID;
-   }
-   inline static uint8_t update_ad_status(adorder & ad, market_index_t::const_iterator itr_pair)
-   {
-      //每次广告可交易数量变动后,对广告进行判断
-      if (ad.status == AD_STATUS_ONTHESHELF)
-      { //广告为上架中
-
-         if (ad.left < itr_pair->amount_min)
-         { //变动后交易数量小于交易对的最小交易数量时,状态改为自动下架
-            ad.status = AD_STATUS_AUT_OFFTHESHELF;
-         }
-      }
-      else if (ad.status == AD_STATUS_AUT_OFFTHESHELF) //如果是自动下架,比如吃单方撤单了
-      {
-         if (ad.left >= itr_pair->amount_min) //自动下架且可交易数量>=交易对配置的最小交易数量时,状态改为上架中
-         {
-            ad.status = AD_STATUS_ONTHESHELF; //改为上架中
-         }
-         else if (ad.left + ad.freeze < itr_pair->amount_min) //自动下架且可交易数量+冻结数量<交易对最小交易数量时，状态改为已完成
-         {
-            ad.status = AD_STATUS_FINISHED; //已完成
-         }
-      }
-
-      return ad.status;
-   }
-
-   inline order_index_t get_adtable(const symbol_code &pair, const std::string &side)
-   {
-      check((side == MARKET_ORDER_SIDE_ASK_STR || side == MARKET_ORDER_SIDE_BID_STR), SIDE_INVALID_STR);
-      std::string scope = pair.to_string() + MARKET_ROLE_MAKER_STR + side;
-      transform(scope.begin(), scope.end(), scope.begin(), ::tolower); //转成小写
-      return order_index_t(_self, name{scope}.value);
-   }
-
-   inline order_index_t::const_iterator get_adorder(const symbol_code &pair, const std::string &side, uint64_t ad_id)
-   {
-
-      auto adtable_ = get_adtable(pair, side);
-      auto it = adtable_.require_find(ad_id, ERR_MSG_AD_NOT_EXIST);
-      return it;
-   }
-
-   inline market_index_t::const_iterator get_open_market(const symbol_code &pair) //
-   {
-      auto it = markettable_.require_find(pair.raw(), ERR_MSG_CHECK_FAILED(50110, pair.to_string().append(ERR_MSG_PAIR_NOT_EXIST)).c_str());
-      check(it->status == MARKET_STATUS_ON, ERR_MSG_CHECK_FAILED(50111, pair.to_string().append(ERR_MSG_PAIR_NOT_ALLOW_TRADE)));
-      return it;
-   }
-
-   inline market_index_t::const_iterator get_market(const symbol_code &pair) //
-   {
-      auto it = markettable_.require_find(pair.raw(), ERR_MSG_CHECK_FAILED(50110, pair.to_string().append(ERR_MSG_PAIR_NOT_EXIST)).c_str());
-      return it;
-   }
-
    inline void transfer(name from,
                         name to,
                         asset quantity,
@@ -869,6 +976,68 @@ public:
           name{TOKEN_CONTRACT_NAME},
           name{TOKEN_CONTRACT_TRANSFER_ACTION},
           std::make_tuple(from, to, quantity, memo))
+          .send();
+   }
+
+   // 广告卖币或者吃单卖币的用户的钱先冻结
+   /* owner: 存款人账号。
+   * assset: 资产数额。
+   * type: 1 OTC 2 ABT(仲裁）
+   * cc push action otcsystem deposit '[ "eoscngdszlgz", "100.0000 ADX", 1]' -p eoscngdszlgz
+   */
+
+   inline void freeze_stock(name who,
+                            asset quantity,
+                            uint8_t type,
+                            std::string memo)
+   {
+
+      action(
+          permission_level{who, name{"active"}},
+          name{PRO_TOKEN_CONTRACT_NAME},
+          name{PRO_TOKEN_CONTRACT_FREEZE},
+          std::make_tuple(who, quantity, type))
+          .send();
+   }
+
+   //撤单解冻
+   /* owner: 存款人账号。
+   * assset: 资产数额。
+   * type: 1 OTC 2 ABT(仲裁）
+   * cc push action otcsystem withdraw '[ "eoscngdszlgz", "10.0000 ADX", 1]' -p 
+   */
+   inline void unfreeze_stock(name who,
+                              asset quantity,
+                              uint8_t type,
+                              std::string memo)
+   {
+
+      action(
+          permission_level{who, name{"active"}},
+          name{PRO_TOKEN_CONTRACT_NAME},
+          name{PRO_TOKEN_CONTRACT_UNFREEZE},
+          std::make_tuple(who, quantity, type))
+          .send();
+   }
+   /*
+   * owner: 存款人账号。
+     to: 目标账号。
+     assset: 资产数额。
+     fee: 手续费数额
+   *  cc push action otcsystem transfer '["eoscngdszlgz", "liguozheng11", "10.0000 ADX", "1.0000 ADX"]' -p eoscngdszlgz  
+   */
+   inline void settle_stock(name from,
+                            name to,
+                            asset quantity,
+                            asset fee,
+                            std::string memo)
+   {
+      //可以冻结,转账,扣手续费等
+      action(
+          permission_level{from, name{"active"}},
+          name{PRO_TOKEN_CONTRACT_NAME},
+          name{PRO_TOKEN_CONTRACT_SETTLE},
+          std::make_tuple(from, to, quantity, fee))
           .send();
    }
 
@@ -904,66 +1073,6 @@ public:
       dtrx.delay_sec = 3;
 
       //dtrx.send(eosio::current_time_point().sec_since_epoch(), _self);
-   }
-
-   ACTION rmmarket(const symbol_code &pair)
-   {
-      require_auth(_self); //必须要求是合约账号的权限+table是合约范围内的
-      auto it = get_open_market(pair);
-      markettable_.erase(it);
-      print("delete one market finish\n");
-   }
-
-   ACTION rmmarkets()
-   {
-
-      require_auth(_self); //必须要求是合约账号的权限
-                           //table是合约范围内的
-      auto it = markettable_.begin();
-      while (it != markettable_.end())
-      {
-         it = markettable_.erase(it);
-      }
-      print("delete all market finish\n");
-   }
-
-   ACTION rmad(const symbol_code &pair, const std::string &side, uint64_t ad_id)
-   {
-      require_auth(get_self()); //只有合约才能删除广告订单
-      auto adtable_ = get_adtable(pair, side);
-      auto it = adtable_.require_find(ad_id, ERR_MSG_AD_NOT_EXIST);
-      adtable_.erase(it);
-   }
-
-   ACTION rmads(const symbol_code &pair, const std::string &side)
-   {
-      require_auth(get_self()); //只有合约才能删除广告订单
-      auto adtable_ = get_adtable(pair, side);
-      auto it = adtable_.begin();
-      while (it != adtable_.end())
-      {
-         it = adtable_.erase(it);
-      }
-   }
-
-   ACTION rmdeal(const symbol_code &pair, uint64_t id)
-   {
-      require_auth(get_self());
-      deal_index_t dealtable_(_self, name{pair.to_string()}.value);
-      auto it = dealtable_.require_find(id, "吃单找不到");
-      dealtable_.erase(it);
-   }
-
-   ACTION rmdeals(const symbol_code &pair)
-   {
-      require_auth(get_self());
-      deal_index_t dealtable_(_self, name{pair.to_string()}.value);
-      auto it = dealtable_.begin();
-
-      while (it != dealtable_.end())
-      {
-         it = dealtable_.erase(it);
-      }
    }
 
    USING_ACTION(otcexchange, newmarket);

@@ -28,9 +28,9 @@ cc set contract eosio.token ${HOME}/dabaicai/deploy/cc/contracts1.9/eosio.token/
 cc set contract eosio.msig  ${HOME}/dabaicai/deploy/cc/contracts1.9/eosio.msig/
 
 #创建数字货币
-cc push action eosio.token create '[ "eosio", "10000000000.0000 SYS" ]' -p eosio.token@active
+cc push action eosio.token create '[ "eosio", "10000000000.0000 EOS" ]' -p eosio.token@active
 #发行
-cc push action eosio.token issue '[ "eosio", "1000000000.0000 SYS", "memo" ]' -p eosio@active
+cc push action eosio.token issue '[ "eosio", "1000000000.0000 EOS", "memo" ]' -p eosio@active
 
 curl --request POST \
     --url http://127.0.0.1:18888/v1/producer/schedule_protocol_feature_activations \
@@ -82,17 +82,17 @@ cc   set contract eosio ${HOME}/dabaicai/deploy/cc/contracts1.9/eosio.system/ -x
 
 
 cc push action eosio setpriv '["eosio.msig", 1]' -p eosio@active
-cc push action eosio init '["0", "4,SYS"]' -p eosio@active
+cc push action eosio init '["0", "4,EOS"]' -p eosio@active
 
 
 
-cc system newaccount eosio --transfer accountnum11 EOS5BGsTksjoPuGrpTQGNDAD3wTvUoD8tioo4KgRjccfwEpF7HZzw --stake-net "100000000.0000 SYS" --stake-cpu "100000000.0000 SYS" --buy-ram-kbytes 8192
+cc system newaccount eosio --transfer accountnum11 EOS5BGsTksjoPuGrpTQGNDAD3wTvUoD8tioo4KgRjccfwEpF7HZzw --stake-net "100000000.0000 EOS" --stake-cpu "100000000.0000 EOS" --buy-ram-kbytes 8192
 cc system regproducer accountnum11 EOS5BGsTksjoPuGrpTQGNDAD3wTvUoD8tioo4KgRjccfwEpF7HZzw http://accountnum11.com 
 
-cc system newaccount eosio --transfer accountnum12 EOS5CXYetxpcMwkpTc2DaL3iurGZUPHoAKXg1QZdLrwF15JYRYUHY --stake-net "100000000.0000 SYS" --stake-cpu "100000000.0000 SYS" --buy-ram-kbytes 8192
+cc system newaccount eosio --transfer accountnum12 EOS5CXYetxpcMwkpTc2DaL3iurGZUPHoAKXg1QZdLrwF15JYRYUHY --stake-net "100000000.0000 EOS" --stake-cpu "100000000.0000 EOS" --buy-ram-kbytes 8192
 cc system regproducer accountnum12 EOS5CXYetxpcMwkpTc2DaL3iurGZUPHoAKXg1QZdLrwF15JYRYUHY http://accountnum12.com 
 
-cc system newaccount eosio --transfer accountnum13 EOS5kRFTVqLMk8Cc5oTzdriN2hnat87AsmmujgYZg7rWGG1MJkJFW --stake-net "100000000.0000 SYS" --stake-cpu "100000000.0000 SYS" --buy-ram-kbytes 8192
+cc system newaccount eosio --transfer accountnum13 EOS5kRFTVqLMk8Cc5oTzdriN2hnat87AsmmujgYZg7rWGG1MJkJFW --stake-net "100000000.0000 EOS" --stake-cpu "100000000.0000 EOS" --buy-ram-kbytes 8192
 cc system regproducer accountnum13 EOS5kRFTVqLMk8Cc5oTzdriN2hnat87AsmmujgYZg7rWGG1MJkJFW http://accountnum13.com 
 
 cc system voteproducer prods accountnum11 accountnum11 accountnum12 accountnum13
@@ -133,4 +133,4 @@ cc push action eosio updateauth '{"account": "eosio.vpay", "permission": "active
 
 
 
-cc system newaccount eosio --transfer eosio.bpay  EOS5ts4iSB1vNd32U8JVuqB1NAy7y11wxc73DgWVkARjC1QyGyDso --stake-net "100000000.0000 SYS" --stake-cpu "100000000.0000 SYS" --buy-ram-kbytes 8192
+cc system newaccount eosio --transfer eosio.bpay  EOS5ts4iSB1vNd32U8JVuqB1NAy7y11wxc73DgWVkARjC1QyGyDso --stake-net "100000000.0000 EOS" --stake-cpu "100000000.0000 EOS" --buy-ram-kbytes 8192

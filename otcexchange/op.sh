@@ -6,8 +6,8 @@ cc wallet create_key -n hopex
 cc system newaccount eosio --transfer zhouhao  \
 EOS6xJqGjUeivzmZhNVjojmTNH4uPBb5zpJd2axqGe6o6u5RBmZrE  \
 EOS6xJqGjUeivzmZhNVjojmTNH4uPBb5zpJd2axqGe6o6u5RBmZrE  \
---stake-net "10000.0000 SYS"  \
---stake-cpu "10000.0000 SYS"  \
+--stake-net "10000.0000 EOS"  \
+--stake-cpu "10000.0000 EOS"  \
 --buy-ram-kbytes 8192
 
 #
@@ -16,22 +16,22 @@ EOS6xJqGjUeivzmZhNVjojmTNH4uPBb5zpJd2axqGe6o6u5RBmZrE  \
 cc system newaccount eosio otcexchange  \
 EOS8eeigH6SW5ZJm12rBfBFEGEPAEyKjdahS9ghau1bvDCLWzGCbe \
 EOS8eeigH6SW5ZJm12rBfBFEGEPAEyKjdahS9ghau1bvDCLWzGCbe  \
---stake-net '50.00 SYS' \
---stake-cpu '50.00 SYS' \
+--stake-net '50.00 EOS' \
+--stake-cpu '50.00 EOS' \
 --buy-ram-kbytes 10000
 
 
 #3.给新帐号转帐
-cc push action eosio.token transfer '["eosio", "otcexchange","1.0000 SYS","test"]' -p eosio
-cc push action eosio.token transfer '["eosio", "otcexchange","10000.0000 SYS","test"]' -p eosio
+cc push action eosio.token transfer '["eosio", "otcexchange","1.0000 EOS","test"]' -p eosio
+cc push action eosio.token transfer '["eosio", "otcexchange","10000.0000 EOS","test"]' -p eosio
 
 #4.抵押cpu 内存 买RAM
 
-cc  system buyram otcexchange   otcexchange "100 SYS"   # 自己给自己买RAM
-cc  system buyram eosio   otcexchange "100 SYS"   # 别人给maker买RAM
+cc  system buyram otcexchange   otcexchange "100 EOS"   # 自己给自己买RAM
+cc  system buyram eosio   otcexchange "100 EOS"   # 别人给maker买RAM
 
-cc system delegatebw otcexchange otcexchange '50.0000 SYS' '500.0000 SYS' -p otcexchange # 自己抵押
-cc system delegatebw otcexchange otcexchange '50.0000 SYS' '500.0000 SYS' -p otcexchange # 别人给自己抵押
+cc system delegatebw otcexchange otcexchange '50.0000 EOS' '500.0000 EOS' -p otcexchange # 自己抵押
+cc system delegatebw otcexchange otcexchange '50.0000 EOS' '500.0000 EOS' -p otcexchange # 别人给自己抵押
 
 
 
@@ -63,26 +63,33 @@ cc push action otcexchange  wrapperhi '["zhouhao","创建一个广告挂单"]' -
 
 
 
-cc get table otcexchange otcchange otc
-cc push action otcexchange createspot '["SYS","CNY",4,4,1]' -p zhouhao
+cc get table otcexchange otcexchange otc
+cc push action otcexchange createspot '["EOS","CNY",4,4,1]' -p zhouhao
 cc push action otcexchange removespots '[]' -p zhouhao //移除数据
 cc push action otcexchange getspots '[]' -p zhouhao
 
 
 
-cc push action otcexchange newmarket '["2,ADX","2,CNY","0.1000 ADX","0.1000 ADX","1,ADX","100,ADX","100.00 CNY","1000.00 CNY"]' -p otcexchange
+
+
+
+cc  push action otcexchange newmarket '["2,ADX","2,CNY","0.1000 ADX","0.1000 ADX","1.00 ADX","100.00 ADX","100.00 CNY","1000.00 CNY",60,180,180,180,180,6]' -p otcexchange
+cc  push action otcexchange newmarket '["2,ADX","2,USD","0.1000 ADX","0.1000 ADX","1.00 ADX","100.00 ADX","100.00 USD","1000.00 USD",60,180,180,180,180,6]' -p otcexchange
+cc  get table otcexchange otcexchange markets
+cc  push action otcexchange closemarket '["ADXCNY"]' -p otcexchange
+cc  push action otcexchange openmarket '["ADXCNY"]' -p otcexchange
+cc  push action otcexchange rmmarket  '["ADXCNY"]' -p otcexchange
+cc  push action otcexchange rmmarkets '[]' -p otcexchange
+cc  get table  otcexchange otcexchange markets --key-type i64 --index 1  -L ADXCNY -U ADXCNY
+cc  get table  otcexchange otcexchange markets --key-type i64 --index 2  -U 1
+
+
+#挂广告
 
 
 
 
 
-
-
-
-
-
-cc push action otcexchange openmarket '["ADX","CNY"]' -p otcexchange
-cc push action otcexchange rmmarket '["ADXCNY"]' -p otcexchange
 
 
 cc push action otc putmkorder '["ADXCNY","ask","zhouhao",200,100,50,100,"请提供银行卡6日流水"]' -p zhouhao
@@ -96,57 +103,4 @@ cc push action otc cancelorder '["adxcny","bid","mk","zhouhao",0]' -p otc
 cc push action otc puttkorder '["adxcny","bid","zhouhao",10,100,0,"我来买币"]' -p zhouhao
 
 cc get table otc adxcnymkask orders --key-type i64 --index 3 
-
-/*
-{
-  "rows": [{
-      "id": 0,
-      "user": "maker",
-      "ctime": "2020-09-10T08:26:32.000",
-      "utime": "2020-09-10T08:26:32.000",
-      "status": 1,
-      "side": 1,
-      "type": 1,
-      "role": 1,
-      "price": 10,
-      "amount": 100,
-      "min_amount": 50,
-      "max_amount": 100,
-      "taker_fee_rate": 1000,
-      "maker_fee_rate": 1000,
-      "left": 100,
-      "freeze": 0,
-      "deal_fee": 0,
-      "deal_stock": 0,
-      "deal_money": 0,
-      "source": "请提供银行卡6日流水",
-      "vec_deal": []
-    },{
-      "id": 1,
-      "user": "maker",
-      "ctime": "2020-09-10T08:31:15.000",
-      "utime": "2020-09-10T08:31:15.000",
-      "status": 1,
-      "side": 1,
-      "type": 1,
-      "role": 1,
-      "price": 10,
-      "amount": 100,
-      "min_amount": 50,
-      "max_amount": 100,
-      "taker_fee_rate": 1000,
-      "maker_fee_rate": 1000,
-      "left": 100,
-      "freeze": 0,
-      "deal_fee": 0,
-      "deal_stock": 0,
-      "deal_money": 0,
-      "source": "请提供银行卡6日流水",
-      "vec_deal": []
-    }
-  ],
-  "more": false,
-  "next_key": ""
-}
-*/
 

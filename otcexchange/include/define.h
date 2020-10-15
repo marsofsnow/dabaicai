@@ -1,11 +1,19 @@
 #pragma once
-
+//#define ENV_DEV
+#define TOKEN_SYMBOL_CODE "ADX" //系统代币的符号
+//symbol
 #define USING_ACTION(contract_name, action_name) using action_name##_action = action_wrapper<#action_name##_n, &contract_name::action_name>
 #define ZERO_ASSET(symbol) (asset(0, symbol))
 
 #define TOKEN_CONTRACT_NAME "eosio.token"
 #define TOKEN_CONTRACT_TRANSFER_ACTION "transfer"
 #define TOKEN_TEMP_ACCOUNT "otcexchange"
+
+//生产环境外联合约
+#define PRO_TOKEN_CONTRACT_NAME "otcsystem"
+#define PRO_TOKEN_CONTRACT_FREEZE "deposit"
+#define PRO_TOKEN_CONTRACT_SETTLE "transfer"
+#define PRO_TOKEN_CONTRACT_UNFREEZE "withdraw"
 
 #define BALANCE_TYPE_AVAILABLE 1
 #define BALANCE_TYPE_FREEZE 2
@@ -43,13 +51,13 @@
 //仲裁订单的状态
 #define ARBDEAL_STATUS_CREATED 1
 #define ARBORDER_STATUS_STARTED 2
-#define ARBORDER_STATUS_YES 1
-#define ARBORDER_STATUS_NO 1
-#define ARBORDER_STATUS_NO_JUDGE_OVER 1
-#define ARBORDER_STATUS_JUDGE_STARTED 1
-#define ARBORDER_STATUS_JUDGE_YES 1
-#define ARBORDER_STATUS_JUDGE_NO 1
-#define ARBORDER_STATUS_JUDGE_OVER 1
+#define ARBORDER_STATUS_YES 3
+#define ARBORDER_STATUS_NO 4
+#define ARBORDER_STATUS_NO_JUDGE_OVER 5
+#define ARBORDER_STATUS_JUDGE_STARTED 6
+#define ARBORDER_STATUS_JUDGE_YES 7
+#define ARBORDER_STATUS_JUDGE_NO 8
+#define ARBORDER_STATUS_JUDGE_OVER 9
 
 //仲裁状态,在仲裁流水里显示
 #define ARBITLOG_STATUS_WAIT 1   //等待仲裁
@@ -64,6 +72,10 @@
 #define AD_STATUS_AUT_OFFTHESHELF 3 //自动下架
 #define AD_STATUS_CANCELED 4        //已撤销
 #define AD_STATUS_FINISHED 5        //已完成
+
+#define FIAT_PAY_BANK 1   //银行卡支付
+#define FIAT_PAY_ALIPAY 2 //支付宝支付
+#define FIAT_PAY_WECHAT 3 //微信支付
 
 #define MARKET_ORDER_TYPE_LIMIT 1
 #define MARKET_ORDER_TYPE_MARKET 2
@@ -91,9 +103,7 @@
 #define DEAL_STATUS_SAME " deal status same"
 #define MAKER_ORDER_NOR_EXIST_STR " maker order not exist"
 
-#define TOKEN_SYMBOL_CODE "SYS" //代币的符号
-
-#define EOS_SYMBOL symbol(symbol_code("EOS") 4)
+//#define EOS_SYMBOL symbol(symbol_code("EOS") 4)
 
 #define SG_MARKETS_SCOPE_STR "markets"
 
