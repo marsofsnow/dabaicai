@@ -490,7 +490,7 @@ void otcexchange::rollbackdeal_v1(const symbol_code &pair,
       ad.left = ad.left + itr_deal->amount;
       ad.freeze = ad.freeze - itr_deal->amount;
       ad.update_ad_status(itr_pair);
-      //update_ad_status(ad, itr_pair);
+      update_ad_status(ad, itr_pair);
    });
 
    //deal是买币的,就不用做什么操作了.

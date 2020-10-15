@@ -685,7 +685,7 @@ private:
                       deal_index_t::const_iterator itr_deal,
                       uint8_t status,
                       const std::string &reason); //放币操作
-   void commizztdeal(const symbol_code &pair,
+   void commitdeal(const symbol_code &pair,
                      name who,
                      uint64_t deal_id,
                      uint8_t status,
