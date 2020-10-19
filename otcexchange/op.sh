@@ -100,7 +100,7 @@ cc push action otc cancelorder '["adxcny","bid","mk","zhouhao",0]' -p otc
 
 
 
-cc push action otc puttkorder '["adxcny","bid","zhouhao",10,100,0,"我来买币"]' -p zhouhao
+cc push action otc puttkorder '["ADXCNY","ask","dabaicai","50.00 CNY","1.0000 ADX",1,"taker是卖币吃单"]' -p zhouhao
 
 cc get table otc adxcnymkask orders --key-type i64 --index 3 
 

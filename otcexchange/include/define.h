@@ -9,11 +9,17 @@
 #define TOKEN_CONTRACT_TRANSFER_ACTION "transfer"
 #define TOKEN_TEMP_ACCOUNT "otcexchange"
 
+#define ARBUSER_STATUS_WORKING 1
+#define ARBUSER_STATUS_NOTWORKING 2
+
 //生产环境外联合约
 #define PRO_TOKEN_CONTRACT_NAME "otcsystem"
 #define PRO_TOKEN_CONTRACT_FREEZE "deposit"
 #define PRO_TOKEN_CONTRACT_SETTLE "transfer"
 #define PRO_TOKEN_CONTRACT_UNFREEZE "withdraw"
+//type: 1 OTC 2 ABT(仲裁）
+#define USER_TYPE_OTC 1
+#define USER_TYPE_ARB 2
 
 #define BALANCE_TYPE_AVAILABLE 1
 #define BALANCE_TYPE_FREEZE 2
@@ -36,8 +42,8 @@
 #define DEAL_STATUS_PAID_JUDGE_CANCEL 28   //终审结果为取消放币
 #define DEAL_STATUS_PAID_JUDGE_PLAYCOIN 29 //终审结果为放币
 
-#define DEAL_STATUS_PAID_PLAYCOIN_FINISH 30 //放币完成
-#define DEAL_STATUS_CANCEL_FINISH 31        //放币取消完成
+#define DEAL_STATUS_SUCCESS_FINISHED 30 //放币完成
+#define DEAL_STATUS_CANCEL_FINISHED 31  //取消完成
 
 #define MARKET_STATUS_ON 1  //允许交易
 #define MARKET_STATUS_OFF 2 //不允许交易
@@ -171,3 +177,29 @@
 #define ERR_MSG_
 
 //错误码分配 500100-500199 分配给market
+
+//手动取消：买币方待支付->待支付取消完成
+//超时取消：买币方待支付->超时待支付取消
+//仲裁取消：仲裁中->仲裁取消中->取消完成
+//终审取消：仲裁取消或者放币->终审取消->取消完成
+//自己放币：已付款待支付中->放币中->放币完成
+//仲裁放币：仲裁中->仲裁放币中->放币完成
+//终审放币：仲裁取消或放币->终审放币中->放币完成
+//终审者提交订单
+
+//1.手动取消待支付的订单
+//手动取消：买币方待支付->待支付取消完成
+//超时取消：买币方待支付->超时待支付取消
+//仲裁取消：仲裁中->仲裁取消中->取消完成
+//终审取消：仲裁放币/取消->终审取消中->取消完成
+/*
+idx64（uint64_t）
+
+idx128（uint128_t）
+
+idx256（eosio::checksum256）
+
+idx_double（double）
+
+idx_long_double（long double）
+*/

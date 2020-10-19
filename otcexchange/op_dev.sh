@@ -70,15 +70,25 @@ zz get table eosio eosio voters
 
 
 # 2.1 创建交易对
+zz  push action otcexchange rmmarkets '[]' -p otcexchange
+
 zz  push action otcexchange newmarket '["4,ADX","2,CNY","0.1000 ADX","0.1000 ADX","1.0000 ADX","100.0000 ADX","100.00 CNY","1000.00 CNY",60,180,180,180,180,6]' -p otcexchange
 
 zz  push action otcexchange newmarket '["4,ADX","2,USD","0.1000 ADX","0.1000 ADX","1.0000 ADX","100.0000 ADX","100.00 USD","1000.00 USD",60,180,180,180,180,6]' -p otcexchange
+
+
+zz  push action otcexchange newmarket '["4,EOS","2,USD","0.1000 EOS","0.1000 EOS","1.0000 EOS","100.0000 EOS","100.00 USD","1000.00 USD",60,180,180,180,180,6]' -p otcexchange
+
+
+
 zz  get table otcexchange otcexchange markets
 zz  push action otcexchange closemarket '["ADXCNY"]' -p otcexchange
 zz  push action otcexchange openmarket '["ADXCNY"]' -p otcexchange
-#zz  push action otcexchange rmmarket  '["ADXCNY"]' -p otcexchange
-#zz  push action otcexchange rmmarkets '[]' -p otcexchange
-zz  get table  otcexchange otcexchange markets --key-type i64 --index 1  -L ADXCNY -U ADXCNY
+zz  push action otcexchange rmmarket  '["ADXCNY"]' -p otcexchange
+
+
+zz  get table  otcexchange otcexchange markets --key-type i64 --index 3 -L "4,ADX" -U "4,ADX";
+
 zz  get table  otcexchange otcexchange markets --key-type i64 --index 2  -U 1
 
 
@@ -90,16 +100,50 @@ zz  get table  otcexchange otcexchange markets --key-type i64 --index 2  -U 1
                      asset amount_min,
                      asset amount_max,
                      const std::string &source)
+
+# 
+
 # 挂一个买单
+
+zz get table otcexchange ADXCNY adorders
 
 zz  push action otcexchange  putadorder '["ADXCNY","bid","zhouhao","100.00 CNY","10.0000 ADX","1.0000 ADX","1.0000 ADX","周浩要买ADXCNY 10.0000 ADX,价格是10.00 CNY"]' -p zhouhao@active
  
 #挂一个卖单
 
-zz  push action otcexchange  putadorder '["ADXCNY","ask","zhouhao","100.00 CNY","10.0000 ADX","1.0000 ADX","1.0000 ADX","周浩要买ADXCNY 10.0000 ADX,价格是100.00 CNY"]' -p zhouhao
+zz  push action otcexchange  putadorder '["ADXCNY","ask","zhouhao","100.00 CNY","10.0000 ADX","1.0000 ADX","1.0000 ADX","周浩要卖ADXCNY 10.0000 ADX,价格是100.00 CNY"]' -p zhouhao
 
-#内联调用的权限
+#合约内联调用的权限
 zz  set account permission otcexchange  active --add-code 
 
+# 登录
+zz push push action otcsystem login '["zhouhao","2222","abcd","abcd"]' -p zhouhao@active
+zz push push action otcsystem login '["dabaicai","2222","ab","ad"]' -p dabaicai@active
+zz push push action otcexchange offad '["ADXCNY","ask",0,"test"]' -p zhouhao
 
-zz set account permission zhouhao active '{"threshold": 1,"keys": [{"key": "EOS66uWg77AUeV7PxW5CejEHen7roZzickkb3RoBgQ1dYMXDEpjrT","weight": 1}], "accounts": [{"permission":{"actor":"test","permission":"eosio.code"},"weight":1}]}' -p zhouhao@owner
+
+
+zz set account permission zhouhao active '{"threshold": 1,"keys": [{"key": "EOS66uWg77AUeV7PxW5CejEHen7roZzickkb3RoBgQ1dYMXDEpjrT","weight": 1}], "accounts": [{"permission":{"actor":"otcexchange","permission":"eosio.code"},"weight":1}]}' -p zhouhao@owner
+
+
+
+#用户授权
+zz set account permission zhouhao active '{"threshold": 1,"keys": [{"key": "EOS66uWg77AUeV7PxW5CejEHen7roZzickkb3RoBgQ1dYMXDEpjrT","weight": 1}], "accounts": [{"permission":{"actor":"otcexchange","permission":"eosio.code"},"weight":1},{"permission":{"actor":"otcsystem","permission":"eosio.code"},"weight":1}]}' -p zhouhao@owner
+zz set account permission dabaicai active '{"threshold": 1,"keys": [{"key": "EOS6JLFKjgXaVWjJihTufhTxB8PF6hm3e4usmJhSXP1pfWcQWapX9","weight": 1}], "accounts": [{"permission":{"actor":"otcexchange","permission":"eosio.code"},"weight":1},{"permission":{"actor":"otcsystem","permission":"eosio.code"},"weight":1}]}' -p dabaicai@owner
+
+
+#
+zz get table otcexchange adxcnymkask adorders
+zz get table otcexchange adxcnymkbid adorders
+
+
+#手动下架一个广告
+zz push push action otcexchange offselfad '["ADXCNY","ask","0","手动下架"]' -p zhouhao@active
+zz get table adxio.token zhouhao accounts
+zz get table adxio.token dabaicai accounts
+
+#来一个卖币taker
+
+ zz  push action otcexchange puttkorder '["ADXCNY","ask","dabaicai","50.00 CNY","1.0000 ADX",1,"taker是卖币吃单"]' -p dabaicai 
+
+ zz push action otcexchange rmmarkets '[]' -p otcexchange
