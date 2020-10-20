@@ -9,6 +9,7 @@
 #include <string>
 
 #include <vector>
+#include <set>
 #include <unordered_map>
 //#include "common/define.hpp"
 #include "define.h"
@@ -23,9 +24,12 @@ public:
                                                                               markets_(self, self.value),
                                                                               users_(self, self.value),
                                                                               arbiters_(self, self.value),
-                                                                              judgers_(self, self.value)
+                                                                              judgers_(self, self.value),
+                                                                              overview_(self, self.value)
 
    {
+      overview ow;
+      overview_.get_or_create(_self, ow);
    }
 
    ACTION hi(name nm);
@@ -84,20 +88,20 @@ public:
                     const std::string &content,
                     const std::vector<std::string> attachments,
                     const std::string &source);
+   ACTION putjudge(name who,
+                   const symbol_code &pair,
+                   uint64_t deal_id,
+                   const std::string &reason);
 
    ACTION defcldeal(const symbol_code &pair, name who, uint64_t deal_id, uint8_t status, const std::string &reason);
 
    ACTION defcmdeal(const symbol_code &pair, name who, uint64_t deal_id, uint8_t status, const std::string &reason);
 
-   ACTION artcldeal(name arbiter, const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason);
+   ACTION arbdeal(name arbiter, const symbol_code &pair, uint64_t deal_id, uint8_t choice, const std::string &reason);
+   ACTION judgedeal(name judger, const symbol_code &pair, uint64_t deal_id, uint8_t choice, const std::string &reason);
 
-   ACTION artcmdeal(name arbiter, const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason);
+   ACTION rmmarket(const symbol_code &stock, const symbol_code &money);
 
-   ACTION judgerbdeal(name judger, const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason);
-
-   ACTION judgecmdeal(name judger, const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason);
-
-   ACTION rmmarket(const symbol_code &pair);
    ACTION rmmarkets();
    ACTION rmad(const symbol_code &pair, const std::string &side, uint64_t ad_id);
    ACTION rmads(const symbol_code &pair, const std::string &side);
@@ -305,55 +309,6 @@ private:
                                        >;
    arbiter_index_t arbiters_;
 
-   void get_avail_arbiter(std::set<name> & res, int num, const time_point_sec &ctime)
-   {
-      auto atime = arbiters_.get_index<"bytime"_n>();
-      auto beg = atime.lower_bound(ctime.sec_since_epoch());
-      auto end = atime.upper_bound(ctime.sec_since_epoch());
-
-      auto it = beg;
-      while (it != end && res.size() < num)
-      {
-
-         res.insert(it->account);
-      }
-      if (res.size() == num)
-         return;
-
-      auto astatus = arbiters_.get_index<"bystatus"_n>();
-      auto it1_beg = astatus.lower_bound(ARBUSER_STATUS_WORKING);
-      auto it1 = it1_beg;
-      auto it2_end = astatus.upper_bound(ARBUSER_STATUS_NOTWORKING);
-      while (it1 != it2_end && res.size() < num)
-      {
-         res.insert(it1->account);
-         ++it1;
-      }
-      if (res.size() == num)
-         return;
-
-      auto awinnum = arbiters_.get_index<"bywinnum"_n>();
-      auto it_winnum = awinnum.begin();
-      while (it_winnum != awinnum.end() && res.size() < num)
-      {
-         res.insert(it_winnum->account);
-         ++it_winnum;
-      }
-      if (res.size() == num)
-         return;
-
-      auto awinrate = arbiters_.get_index<"bywinrate"_n>();
-      auto it_winrate = awinrate.begin();
-      while (it_winrate != awinrate.end() && res.size() < num)
-      {
-         res.insert(it_winrate->account);
-         ++it_winrate;
-      }
-
-      if (res.size() == num)
-         return;
-   }
-
    TABLE judger
    {
       name account;       //EOS账户
@@ -400,7 +355,7 @@ private:
       asset amount;                            //仲裁数量
       asset price;                             //仲裁价格
       asset quota;                             //终金额
-      std::vector<name> vec_arbiter;           //仲裁员成员
+      std::set<name> vec_arbiter;              //仲裁员成员
       std::map<name, uint8_t> map_person_pick; //每个人的仲裁结果
       asset arbitrate_fee;                     //仲裁手续费
 
@@ -482,6 +437,18 @@ private:
 
    market_index_t markets_; //属于合约，scope是全表
 
+   //加一个全局概括
+   TABLE overview
+   {
+      std::set<std::string> stocks;
+      std::set<std::string> fiats;
+      std::set<std::string> pairs;
+      EOSLIB_SERIALIZE(overview, (stocks)(fiats)(pairs))
+   };
+   using overview_t = singleton<"ow"_n, overview>;
+   using overview_tt = multi_index<"ow"_n, overview>;
+   overview_t overview_;
+
    TABLE adorder
    {
       uint64_t id;                    //广告订单id，自增主键,scope = pair+side.相当于盘口,卖盘，由小到大，买盘由大到小
@@ -551,28 +518,29 @@ private:
    {
       uint64_t id; //deal id  自增id
       name user;
-      uint8_t side;                          //taker是买还是卖
-      uint8_t type;                          //广告订单类型，1限价 2市价
-      uint8_t role;                          //广告订单类型，1挂单 2吃单
-      time_point ctime;                      //创建时间
-      time_point utime;                      //更新时间
-      name maker_user;                       //对手方
-      uint64_t maker_order_id;               //对手方广告订单id
-      asset price;                           //成交价
-      asset amount;                          //成交数量
-      asset quota;                           //成交额price*amount
-      asset ask_fee;                         //收取的卖方手续费
-      asset bid_fee;                         //收取的买方手续费
-      uint8_t status;                        //成交的状态
-      uint32_t pay_timeout;                  //支付超时时间,
-      uint64_t pay_timeout_sender_id;        //异步事物id
-      uint64_t self_playcoin_sender_id;      //异步事物id
-      uint64_t arbiarate_cancel_sender_id;   //异步事物idARBIARATE
-      uint64_t arbiarate_playcoin_sender_id; //异步事物id
-      symbol_code pair;                      //交易对
-      uint8_t fiat_pay_method;               //法币支付方式
-      std::string fiat_account;              //法币帐号,保存的是加密后的信息
-      std::string source;                    //备注信息，仲裁信息等
+      uint8_t side;                     //taker是买还是卖
+      uint8_t type;                     //广告订单类型，1限价 2市价
+      uint8_t role;                     //广告订单类型，1挂单 2吃单
+      time_point ctime;                 //创建时间
+      time_point utime;                 //更新时间
+      name maker_user;                  //对手方
+      uint64_t maker_order_id;          //对手方广告订单id
+      asset price;                      //成交价
+      asset amount;                     //成交数量
+      asset quota;                      //成交额price*amount
+      asset ask_fee;                    //收取的卖方手续费
+      asset bid_fee;                    //收取的买方手续费
+      uint8_t status;                   //成交的状态
+      uint32_t pay_timeout;             //支付超时时间,
+      uint64_t pay_timeout_sender_id;   //异步事物id
+      uint64_t self_playcoin_sender_id; //异步事物id
+      uint64_t arb_sender_id;           //仲裁异步事件
+      //uint64_t arbiarate_cancel_sender_id;   //异步事物idARBIARATE
+      //uint64_t arbiarate_playcoin_sender_id; //异步事物id
+      symbol_code pair;         //交易对
+      uint8_t fiat_pay_method;  //法币支付方式
+      std::string fiat_account; //法币帐号,保存的是加密后的信息
+      std::string source;       //备注信息，仲裁信息等
 
       uint64_t primary_key() const { return id; }
       uint64_t get_secondary_user() const { return user.value; }
@@ -707,6 +675,10 @@ private:
          it = dealtable_.erase(it);
       }
    }
+
+   void get_avail_arbiter(std::set<name> & res, int num, const time_point_sec &ctime);
+
+   int update_art(name arbiter, const symbol_code &pair, uint64_t deal_id, uint8_t choice, const std::string &reason);
 
    void rollback_deal(name who,
                       deal_index_t & dealtable_,

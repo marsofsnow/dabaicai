@@ -12,6 +12,8 @@
 #define ARBUSER_STATUS_WORKING 1
 #define ARBUSER_STATUS_NOTWORKING 2
 
+#define GROUP_ARBPEOPLE_NUM 5
+
 //生产环境外联合约
 #define PRO_TOKEN_CONTRACT_NAME "otcsystem"
 #define PRO_TOKEN_CONTRACT_FREEZE "deposit"
@@ -37,13 +39,13 @@
 #define DEAL_STATUS_PAID_ARBIARATE_CANCEL 25   //已付款待放币仲裁取消结果，合约修改的
 #define DEAL_STATUS_PAID_ARBIARATE_PALYCOIN 26 //已付款待放币仲裁放币结果，合约修改
 
-#define DEAL_STATUS_PAID_PLAYCOIN_ING 27 //自己放币中
-
+#define DEAL_STATUS_PAID_JUDGING 31        //终审中
 #define DEAL_STATUS_PAID_JUDGE_CANCEL 28   //终审结果为取消放币
 #define DEAL_STATUS_PAID_JUDGE_PLAYCOIN 29 //终审结果为放币
 
-#define DEAL_STATUS_SUCCESS_FINISHED 30 //放币完成
-#define DEAL_STATUS_CANCEL_FINISHED 31  //取消完成
+#define DEAL_STATUS_PAID_PLAYCOIN_ING 27 //自己放币
+#define DEAL_STATUS_SUCCESS_FINISHED 30  //放币完成
+#define DEAL_STATUS_CANCEL_FINISHED 31   //取消完成
 
 #define MARKET_STATUS_ON 1  //允许交易
 #define MARKET_STATUS_OFF 2 //不允许交易
@@ -53,6 +55,11 @@
 #define ARBIT_UNKOWN 0
 #define ARBIT_YES 1
 #define ARBIT_NO 2
+
+//终审指令
+#define JUDGE_UNKOWN 0
+#define JUDGE_YES 1
+#define JUDGE_NO 2
 
 //仲裁订单的状态
 #define ARBDEAL_STATUS_CREATED 1
