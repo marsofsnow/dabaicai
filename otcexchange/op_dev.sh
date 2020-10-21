@@ -48,11 +48,15 @@ zz push action adxio.token transfer '["adxio.token", "zhouhao","1000.0000 ADX","
 zz push action adxio.token transfer '["adxio.token", "dabaicai","1000.0000 ADX","test"]' -p adxio.token
 
 
+zz push action eosio.token transfer '["eosio.token", "dabaicai","1000.0000 EOS","test"]' -p eosio.token
+
+
 zz get table adxio.token dabaicai accounts
 
 #4.抵押cpu 内存 买RAM
 
 zz  system buyram otcexchange   otcexchange "1000 EOS"   # 自己给自己买RAM
+zz  system buyram dabaicai   dabaicai "1000.0000 EOS"   # 自己给自己买RAM
 zz  system buyram eosio  otc "1000 EOS"   # 别人给maker买RAM
 
 zz system delegatebw maker otc '500.0000 EOS' '500.0000 EOS' -p otc # 自己抵押
@@ -71,13 +75,12 @@ zz get table eosio eosio voters
 
 # 2.1 创建交易对
 zz  push action otcexchange rmmarkets '[]' -p otcexchange
+zz  push action otcexchange rmads '[]' -p otcexchange
+zz  push action otcexchange rmdeals '[]' -p otcexchange
 
-zz  push action otcexchange newmarket '["4,ADX","2,CNY","0.1000 ADX","0.1000 ADX","1.0000 ADX","100.0000 ADX","100.00 CNY","1000.00 CNY",60,180,180,180,180,6]' -p otcexchange
-
-zz  push action otcexchange newmarket '["4,ADX","2,USD","0.1000 ADX","0.1000 ADX","1.0000 ADX","100.0000 ADX","100.00 USD","1000.00 USD",60,180,180,180,180,6]' -p otcexchange
-
-
-zz  push action otcexchange newmarket '["4,EOS","2,USD","0.1000 EOS","0.1000 EOS","1.0000 EOS","100.0000 EOS","100.00 USD","1000.00 USD",60,180,180,180,180,6]' -p otcexchange
+zz  push action otcexchange newmarket '["4,ADX","2,CNY","0.1000 ADX","0.1000 ADX","0.1000 ADX","0.1000 ADX","1.0000 ADX","100.0000 ADX","100.00 CNY","1000.00 CNY",60,180,180,180,180,6]' -p otcexchange
+zz  push action otcexchange newmarket '["4,ADX","2,USD","0.1000 ADX","0.1000 ADX","0.1000 ADX","0.1000 ADX","1.0000 ADX","100.0000 ADX","100.00 USD","1000.00 USD",60,180,180,180,180,6]' -p otcexchange
+zz  push action otcexchange newmarket '["4,EOS","2,USD","0.1000 EOS","0.1000 EOS","0.1000 EOS","0.1000 EOS","1.0000 EOS","100.0000 EOS","100.00 USD","1000.00 USD",60,180,180,180,180,6]' -p otcexchange
 
 
 
@@ -107,19 +110,32 @@ zz  get table  otcexchange otcexchange markets --key-type i64 --index 2  -U 1
 
 zz get table otcexchange ADXCNY adorders
 
-zz  push action otcexchange  putadorder '["ADXCNY","bid","zhouhao","100.00 CNY","10.0000 ADX","1.0000 ADX","1.0000 ADX","周浩要买ADXCNY 10.0000 ADX,价格是10.00 CNY"]' -p zhouhao@active
+zz  push action otcexchange  putadorder '["ADXCNY","bid","zhouhao","100.00 CNY","10.0000 ADX","1.0000 ADX","1.0000 ADX","zh要买ADXCNY 10.0000 ADX,价格是10.00 CNY"]' -p zhouhao@active
  
 #挂一个卖单
 
-zz  push action otcexchange  putadorder '["ADXCNY","ask","zhouhao","100.00 CNY","10.0000 ADX","1.0000 ADX","1.0000 ADX","周浩要卖ADXCNY 10.0000 ADX,价格是100.00 CNY"]' -p zhouhao
+zz  push action otcexchange  putadorder '["ADXCNY","ask","zhouhao","100.00 CNY","10.0000 ADX","1.0000 ADX","1.0000 ADX","zh要卖ADXCNY 10.0000 ADX,价格是100.00 CNY"]' -p zhouhao
 
 #合约内联调用的权限
 zz  set account permission otcexchange  active --add-code 
 
+zz  push action otcexchange rmads '["ADXCNY","ask"]' -p otcexchange
+zz  push action otcexchange rmads '["ADXCNY","bid"]' -p otcexchange
+zz  push action otcexchange rmdeals '["ADXCNY"]' -p otcexchange
+zz get table otcexchange adxcnymkask adorders
+zz get table otcexchange adxcnymkbid adorders
+zz get table otcexchange adxcny deals
+
+
+
+
 # 登录
 zz push push action otcsystem login '["zhouhao","2222","abcd","abcd"]' -p zhouhao@active
 zz push push action otcsystem login '["dabaicai","2222","ab","ad"]' -p dabaicai@active
+
+
 zz push push action otcexchange offad '["ADXCNY","ask",0,"test"]' -p zhouhao
+zz push push action otcexchange offad '["ADXCNY","bid",1,"test"]' -p zhouhao
 
 
 
@@ -133,12 +149,13 @@ zz set account permission dabaicai active '{"threshold": 1,"keys": [{"key": "EOS
 
 
 #
-zz get table otcexchange adxcnymkask adorders
-zz get table otcexchange adxcnymkbid adorders
+
 
 
 #手动下架一个广告
-zz push push action otcexchange offselfad '["ADXCNY","ask","0","手动下架"]' -p zhouhao@active
+zz push push action otcexchange offad '["ADXCNY","ask","0","手动下架"]' -p zhouhao@active
+zz push push action otcexchange offad '["ADXCNY","ask","1","手动下架"]' -p zhouhao@active
+zz push push action otcexchange offad '["ADXCNY","bid",0,"test"]' -p zhouhao
 zz get table adxio.token zhouhao accounts
 zz get table adxio.token dabaicai accounts
 
@@ -147,3 +164,24 @@ zz get table adxio.token dabaicai accounts
  zz  push action otcexchange puttkorder '["ADXCNY","ask","dabaicai","50.00 CNY","1.0000 ADX",1,"taker是卖币吃单"]' -p dabaicai 
 
  zz push action otcexchange rmmarkets '[]' -p otcexchange
+
+
+
+#发1个广告买单，买50个ADX，价格是100.00CNY ，交易数量[1,50]
+ zz  push action otcexchange  putadorder '["ADXCNY","bid","zhouhao","100.00 CNY","50.0000 ADX","1.0000 ADX","50.0000 ADX","zh要买ADXCNY 50.0000 ADX,价格是100.00 CNY"]' -p zhouhao@active
+
+ #发一个卖币吃单，
+ zz  push action otcexchange puttkorder '["ADXCNY","ask","dabaicai","50.00 CNY","10.0000 ADX",1,"taker是卖币吃单"]' -p dabaicai@active 
+ zz get table otcexchange adxcny deals
+
+ #ACTION mancldeal(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason);
+
+  zz  push action otcexchange mancldeal '["ADXCNY","zhouhao",5,"taker手动取消"]' -p zhouhao@active 
+
+  #ACTION paydeal(const symbol_code &pair, name who, uint64_t deal_id)
+
+  zz  push action otcexchange paydeal '["ADXCNY","zhouhao",4,1,"银行卡付钱"]' -p zhouhao@active 
+
+  #ACTION selfplaycoin(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason, bool right_now)
+   zz  push action otcexchange selfplaycoin '["ADXCNY","dabaicai",4,"放币",true]' -p dabaicai@active 
+

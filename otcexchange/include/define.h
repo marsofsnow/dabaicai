@@ -26,26 +26,29 @@
 #define BALANCE_TYPE_AVAILABLE 1
 #define BALANCE_TYPE_FREEZE 2
 
-#define DEAL_STATUS_UNPAID 10                //未付款
-#define DEAL_STATUS_UNPAID_MAN_CANCEL 11     //未付款手动取消
-#define DEAL_STATUS_UNPAID_TIMEOUT_CANCEL 12 //未付款超时取消
+#define DEAL_STATUS_UNPAID 10 //未付款
 
 #define DEAL_STATUS_PAID_WAIT_PLAYCOIN 20 //已付款等待放币
 #define DEAL_STATUS_PAID_APPEAL_ASK 21    //已付款待放币(买卖方都可以申述)广告方申诉
 #define DEAL_STATUS_PAID_APPEAL_BID 22    //已付款待放币(买卖方都可以申述)吃单方申诉
 #define DEAL_STATUS_PAID_APPEAL_ALL 23    //已付款待放币(买卖方都可以申述)双方申诉
 
-#define DEAL_STATUS_PAID_ARBIARATE_ING 24      //已付款待放币仲裁中
-#define DEAL_STATUS_PAID_ARBIARATE_CANCEL 25   //已付款待放币仲裁取消结果，合约修改的
-#define DEAL_STATUS_PAID_ARBIARATE_PALYCOIN 26 //已付款待放币仲裁放币结果，合约修改
+#define DEAL_STATUS_PAID_ARBIARATE_ING 30      //已付款待放币仲裁中
+#define DEAL_STATUS_PAID_ARBIARATE_CANCEL 31   //已付款待放币仲裁取消结果，合约修改的
+#define DEAL_STATUS_PAID_ARBIARATE_PALYCOIN 32 //已付款待放币仲裁放币结果，合约修改
 
-#define DEAL_STATUS_PAID_JUDGING 31        //终审中
-#define DEAL_STATUS_PAID_JUDGE_CANCEL 28   //终审结果为取消放币
-#define DEAL_STATUS_PAID_JUDGE_PLAYCOIN 29 //终审结果为放币
+#define DEAL_STATUS_PAID_JUDGING 40        //终审中
+#define DEAL_STATUS_PAID_JUDGE_CANCEL 41   //终审结果为取消放币
+#define DEAL_STATUS_PAID_JUDGE_PLAYCOIN 42 //终审结果为放币
 
-#define DEAL_STATUS_PAID_PLAYCOIN_ING 27 //自己放币
-#define DEAL_STATUS_SUCCESS_FINISHED 30  //放币完成
-#define DEAL_STATUS_CANCEL_FINISHED 31   //取消完成
+#define DEAL_STATUS_PAID_CANCEL_ING 50   //取消卖方放币中
+#define DEAL_STATUS_PAID_PLAYCOIN_ING 51 //卖方放币中
+
+//最终状态
+#define DEAL_STATUS_UNPAID_MAN_CANCEL 61     //未付款手动取消
+#define DEAL_STATUS_UNPAID_TIMEOUT_CANCEL 62 //未付款超时取消
+#define DEAL_STATUS_CANCEL_FINISHED 63       //取消完成
+#define DEAL_STATUS_SUCCESS_FINISHED 64      //放币完成
 
 #define MARKET_STATUS_ON 1  //允许交易
 #define MARKET_STATUS_OFF 2 //不允许交易
@@ -86,6 +89,7 @@
 #define AD_STATUS_CANCELED 4        //已撤销
 #define AD_STATUS_FINISHED 5        //已完成
 
+#define FIAT_PAY_UNKOWN 0 //未知
 #define FIAT_PAY_BANK 1   //银行卡支付
 #define FIAT_PAY_ALIPAY 2 //支付宝支付
 #define FIAT_PAY_WECHAT 3 //微信支付
@@ -112,7 +116,7 @@
 #define PAIR_EXIST_STR " pair is exist"
 #define PAIR_NOT_EXIST_STR " is not exist"
 #define DEAL_NOT_EXIST_STR " deal  not exist"
-#define ORDER_NOT_EXIST_STR " order  not exist"
+#define ORDER_NOT_EXIST_STR " ad order  not exist"
 #define DEAL_STATUS_SAME " deal status same"
 #define MAKER_ORDER_NOR_EXIST_STR " maker order not exist"
 

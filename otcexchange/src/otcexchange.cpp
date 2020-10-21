@@ -1,6 +1,7 @@
 #include "otcexchange.hpp"
 #include <eosio/print.hpp>
 #include <algorithm>
+#include <cmath>
 
 //#include "nlohmann/json.hpp"
 //using namespace nlohmann;
@@ -12,8 +13,10 @@ ACTION otcexchange::hi(name nm)
 
 ACTION otcexchange::newmarket(const symbol &stock,
                               const symbol &money,
-                              asset taker_fee_rate,
-                              asset maker_fee_rate,
+                              asset taker_ask_fee_rate,
+                              asset taker_bid_fee_rate,
+                              asset maker_ask_fee_rate,
+                              asset maker_bid_fee_rate,
                               asset amount_min,
                               asset amount_max,
                               asset price_min,
@@ -31,8 +34,15 @@ ACTION otcexchange::newmarket(const symbol &stock,
 
    check(stock.is_valid(), "invalid symbol name");
    check(money.is_valid(), "invalid symbol name");
-   check(taker_fee_rate.symbol.code() == stock.code(), "费率的symbol跟coin的不一致");
-   check(taker_fee_rate.symbol == maker_fee_rate.symbol, "2个费率的symbol不一致");
+   check(taker_ask_fee_rate.symbol.code() == stock.code(), "费率的symbol跟coin的不一致");
+   check(taker_bid_fee_rate.symbol.code() == stock.code(), "费率的symbol跟coin的不一致");
+
+   check(maker_ask_fee_rate.symbol.code() == stock.code(), "费率的symbol跟coin的不一致");
+   check(maker_bid_fee_rate.symbol.code() == stock.code(), "费率的symbol跟coin的不一致");
+
+   check(taker_ask_fee_rate.symbol == taker_bid_fee_rate.symbol, "精度也要一致");
+   check(maker_ask_fee_rate.symbol == maker_bid_fee_rate.symbol, "精度也要一致");
+   check(taker_ask_fee_rate.symbol == maker_ask_fee_rate.symbol, "精度也要一致");
 
    check(amount_max.symbol == stock, "amount的symbol跟coin的不一致");
    check(amount_max.symbol == amount_min.symbol, "2个amount的symbol不一致");
@@ -42,10 +52,13 @@ ACTION otcexchange::newmarket(const symbol &stock,
 
    auto zero_stock = ZERO_ASSET(amount_max.symbol);
    auto zero_money = ZERO_ASSET(price_max.symbol);
-   auto zero_rate = ZERO_ASSET(taker_fee_rate.symbol);
+   auto zero_rate = ZERO_ASSET(taker_ask_fee_rate.symbol);
 
-   check(taker_fee_rate >= zero_rate, ERR_MSG_PARAM_LT_ZERO(50100, taker_fee_rate, ERR_MSG_PARAM_PAIR_TAKER_FEE_RATE_MUST_GE_ZERO));
-   check(maker_fee_rate >= zero_rate, ERR_MSG_PARAM_LT_ZERO(50101, maker_fee_rate, ERR_MSG_PARAM_PAIR_MAKER_FEE_RATE_MUST_GE_ZERO));
+   check(taker_ask_fee_rate >= zero_rate, ERR_MSG_PARAM_LT_ZERO(50100, taker_ask_fee_rate, ERR_MSG_PARAM_PAIR_TAKER_FEE_RATE_MUST_GE_ZERO));
+   check(taker_bid_fee_rate >= zero_rate, ERR_MSG_PARAM_LT_ZERO(50100, taker_bid_fee_rate, ERR_MSG_PARAM_PAIR_TAKER_FEE_RATE_MUST_GE_ZERO));
+
+   check(maker_ask_fee_rate >= zero_rate, ERR_MSG_PARAM_LT_ZERO(50101, maker_ask_fee_rate, ERR_MSG_PARAM_PAIR_MAKER_FEE_RATE_MUST_GE_ZERO));
+   check(maker_bid_fee_rate >= zero_rate, ERR_MSG_PARAM_LT_ZERO(50101, maker_bid_fee_rate, ERR_MSG_PARAM_PAIR_MAKER_FEE_RATE_MUST_GE_ZERO));
 
    check(amount_min > zero_stock, ERR_MSG_PARAM_LE_ZERO(50102, amount_min, ERR_MSG_PARAM_PAIR_AMOUNT_MIN_MUST_GT_ZERO));
    check(amount_max > zero_stock, ERR_MSG_PARAM_LE_ZERO(50103, amount_max, ERR_MSG_PARAM_PAIR_AMOUNT_MAX_MUST_GT_ZERO));
@@ -77,8 +90,10 @@ ACTION otcexchange::newmarket(const symbol &stock,
       m.pair = code_pair;
       m.stock = stock;
       m.money = money;
-      m.taker_fee_rate = taker_fee_rate;
-      m.maker_fee_rate = maker_fee_rate;
+      m.taker_ask_fee_rate = taker_ask_fee_rate;
+      m.taker_bid_fee_rate = taker_bid_fee_rate;
+      m.maker_ask_fee_rate = maker_ask_fee_rate;
+      m.maker_bid_fee_rate = maker_bid_fee_rate;
       m.amount_min = amount_min;
       m.amount_max = amount_max;
       m.price_min = price_min;
@@ -235,26 +250,26 @@ ACTION otcexchange::putadorder(const symbol_code &pair,
    adtable_.emplace(user, [&](adorder &order) {
       order.id = adtable_.available_primary_key();
 
-      order.user = user;                               //订单所属用户，注意是name类型
-      order.pair = pair;                               //
-      order.ctime = current_time_point();              //订单创建时间，精确到微秒
-      order.utime = order.ctime;                       //订单更新时间，精确到微秒
-      order.status = AD_STATUS_ONTHESHELF;             //订单状态，上架中
-      order.side = side_int;                           //买卖类型，1卖 2买
-      order.type = MARKET_ORDER_TYPE_LIMIT;            //订单类型，1限价 2市价
-      order.role = MARKET_ROLE_MAKER;                  //订单类型，1挂单 2吃单
-      order.price = price;                             //订单交易价格
-      order.amount = amount;                           //订单交易数量
-      order.amount_min = amount_min;                   //订单最小成交数量,默认是2
-      order.amount_max = amount_max;                   //订单最小成交数量,默认是2
-      order.taker_fee_rate = itr_pair->taker_fee_rate; //吃单的手续费率
-      order.maker_fee_rate = itr_pair->maker_fee_rate; //挂单的手续费率
-      order.left = amount;                             //剩余多少数量未成交
-      order.freeze = itr_pair->zero_stock;             //冻结的stock或者money
-      order.deal_fee = itr_pair->zero_stock;           //累计的交易手续费
-      order.deal_stock = itr_pair->zero_stock;         //累计的交易sotck数量
-      order.deal_money = itr_pair->zero_money;         //累计的交易money
-      order.source = source;                           //备注信息，订单来源
+      order.user = user;                                       //订单所属用户，注意是name类型
+      order.pair = pair;                                       //
+      order.ctime = current_time_point();                      //订单创建时间，精确到微秒
+      order.utime = order.ctime;                               //订单更新时间，精确到微秒
+      order.status = AD_STATUS_ONTHESHELF;                     //订单状态，上架中
+      order.side = side_int;                                   //买卖类型，1卖 2买
+      order.type = MARKET_ORDER_TYPE_LIMIT;                    //订单类型，1限价 2市价
+      order.role = MARKET_ROLE_MAKER;                          //订单类型，1挂单 2吃单
+      order.price = price;                                     //订单交易价格
+      order.amount = amount;                                   //订单交易数量
+      order.amount_min = amount_min;                           //订单最小成交数量,默认是2
+      order.amount_max = amount_max;                           //订单最小成交数量,默认是2
+      order.maker_ask_fee_rate = itr_pair->maker_ask_fee_rate; //吃单的手续费率
+      order.maker_bid_fee_rate = itr_pair->maker_bid_fee_rate; //挂单的手续费率
+      order.left = amount;                                     //剩余多少数量未成交
+      order.freeze = itr_pair->zero_stock;                     //冻结的stock或者money
+      order.deal_fee = itr_pair->zero_stock;                   //累计的交易手续费
+      order.deal_stock = itr_pair->zero_stock;                 //累计的交易sotck数量
+      order.deal_money = itr_pair->zero_money;                 //累计的交易money
+      order.source = source;                                   //备注信息，订单来源
    });
 
    print("广告上架成功");
@@ -271,6 +286,7 @@ ACTION otcexchange::offad(const symbol_code &pair,
    auto it = adtable_.require_find(ad_id, ORDER_NOT_EXIST_STR);
    auto user = it->user;
    require_auth(user); //鉴权
+   check(it->status != AD_STATUS_MAN_OFFTHESHELF, "ad order 已经被手动下架");
 
    //哪种条件才能取下架合约
    //检查当前的广告下面的吃单最新状态，看是否都完成了或者都取消了
@@ -347,6 +363,7 @@ ACTION otcexchange::puttkorder(const symbol_code &pair,
    adorder_index_t adtable_(_self, name{scope_maker}.value);
    //要求挂单必须存在
    auto mk_it = adtable_.require_find(ad_id, MAKER_ORDER_NOR_EXIST_STR);
+   check(mk_it->status == AD_STATUS_ONTHESHELF, "广告必须是上架中");
 
    //获取挂单的用户
    const auto &mk_user = mk_it->user;
@@ -364,18 +381,19 @@ ACTION otcexchange::puttkorder(const symbol_code &pair,
    if (tk_side == MARKET_ORDER_SIDE_BID)
    {
       check(price >= mk_it->price, "我出的买价必须>=卖价,才能撮合");
-      print("对手方是卖币,他还有充足的币可以卖");
+      print("我是买币，我出的买价>=卖家的卖价");
    }
    else
    {
 
       //我是卖币方,看我是不是还有币可卖,如果有,则直接冻结,这里发送一个内联调用action,如果执行成功，就继续，失败，就不往下走
       check(price <= mk_it->price, "我的卖价必须<=买价,才能撮合");
+      print("我是卖币，我出的卖价<=买家的买价");
 
       //冻结我的币,提示用户您的余额不足
       freeze_stock(user, name{TOKEN_TEMP_ACCOUNT}, amount, USER_TYPE_OTC, std::string("taker 卖币,需要冻结,把钱转到合约帐号:").append(amount.to_string()));
 
-      print("我要卖币给广告方，可用余额够"); //这里要发送一笔转账,也就是先要冻结
+      print("我要卖币给广告方，可用余额够", user.to_string()); //这里要发送一笔转账,也就是先要冻结
    }
 
    //上面判断都通过，生成一个成交记录，也就是吃单详情,属于合约，scope是交易对
@@ -404,18 +422,22 @@ ACTION otcexchange::puttkorder(const symbol_code &pair,
       deal.price = price;   //订单交易价格
       deal.amount = amount; //订单交易数量
 
-      deal.quota = asset(price.amount * amount.amount, itr_pair->money); //算一下交易额是多少,也就是买币方要支付的法币
+      auto pr = std::pow(10, amount.symbol.precision());
+
+      deal.quota = (price * amount.amount) / pr; //算一下交易额是多少,也就是买币方要支付的法币
 
       if (tk_side == MARKET_ORDER_SIDE_ASK)
-      {                                                             //假如我是卖币
-         deal.ask_fee = amount * (itr_pair->taker_fee_rate.amount); //2个不同精度的asset能不能互相需要验证一下
-         deal.bid_fee = amount * (itr_pair->maker_fee_rate.amount);
+      {                                                                      //假如我是卖币
+         deal.ask_fee = amount.amount * (itr_pair->taker_ask_fee_rate) / pr; //2个不同精度的asset能不能互相需要验证一下
+         deal.bid_fee = amount.amount * (itr_pair->maker_bid_fee_rate) / pr;
       }
       else
       {
-         deal.ask_fee = amount * (itr_pair->maker_fee_rate.amount);
-         deal.bid_fee = amount * (itr_pair->taker_fee_rate.amount);
+         deal.ask_fee = amount.amount * (itr_pair->maker_ask_fee_rate) / pr;
+         deal.bid_fee = amount.amount * (itr_pair->taker_bid_fee_rate) / pr;
       }
+      deal.fiat_pay_method = FIAT_PAY_UNKOWN;
+      deal.fiat_account = "";
 
       deal.status = DEAL_STATUS_UNPAID; //待支付状态
       deal.pay_timeout = itr_pair->pay_timeout;
@@ -427,7 +449,7 @@ ACTION otcexchange::puttkorder(const symbol_code &pair,
    });
 
    //修改广告挂单的状态
-   adtable_.modify(mk_it, mk_it->user, [&itr_pair, &deal_id, &amount, &tk_side](adorder &o) {
+   adtable_.modify(mk_it, _self, [&itr_pair, &deal_id, &amount, &tk_side](adorder &o) {
       o.vec_deal.emplace_back(deal_id);
       o.source.append("|").append("被吃单");
       o.utime = current_time_point();
@@ -453,16 +475,18 @@ ACTION otcexchange::puttkorder(const symbol_code &pair,
    t.delay_sec = itr_pair->pay_timeout;
 
    t.send(now.sec_since_epoch(), _self);
-
-   //print_f("Sent with a delay of %d ", t.delay_sec);
+   printf("Sent with a delay of %d ", t.delay_sec);
 }
 
 //法币支付发点击了已支付
-ACTION otcexchange::paydeal(const symbol_code &pair, name who, uint64_t deal_id) //支付
+ACTION otcexchange::paydeal(const symbol_code &pair, name who, uint64_t deal_id, uint8_t fiat_pay_method, const std::string &fiat_account) //支付
 {
    require_auth(who);
 
-   deal_index_t dealtable_(_self, name{pair.to_string()}.value);
+   auto str_pair = pair.to_string();
+   str_pair = lower_str(str_pair);
+   deal_index_t dealtable_(_self, name{str_pair}.value);
+
    auto it = dealtable_.require_find(deal_id, "吃单找不到");
 
    //检查一下status是否正确
@@ -476,6 +500,8 @@ ACTION otcexchange::paydeal(const symbol_code &pair, name who, uint64_t deal_id)
    dealtable_.modify(it, _self, [&](deal &d) {
       d.status = DEAL_STATUS_PAID_WAIT_PLAYCOIN;
       d.utime = current_time_point();
+      d.fiat_pay_method = fiat_pay_method;
+      d.fiat_account = fiat_account;
       d.source.append("|点击已支付");
    });
    //取消异步事物
@@ -488,14 +514,17 @@ ACTION otcexchange::selfplaycoin(const symbol_code &pair, name who, uint64_t dea
 
    require_auth(who);
 
-   deal_index_t dealtable_(_self, name{pair.to_string()}.value);
+   auto str_pair = pair.to_string();
+   str_pair = lower_str(str_pair);
+   deal_index_t dealtable_(_self, name{str_pair}.value);
+
    auto it = dealtable_.require_find(deal_id, "吃单找不到");
    check(it->status == DEAL_STATUS_PAID_WAIT_PLAYCOIN, "只有买方法币支付了，才能放币");
 
    //校验who是不是卖币者
    bool who_taker_bid = (who == it->user) && (it->side == MARKET_ORDER_SIDE_ASK);
    bool who_maker_bid = (who == it->maker_user) && (it->side == MARKET_ORDER_SIDE_BID);
-   check(who_taker_bid || who_maker_bid, "只有卖币者才能在买方已经支付法币的前提下放币");
+   check(who_taker_bid || who_maker_bid, "我是卖币者，只能在买方已经支付法币的前提下放币");
 
    dealtable_.modify(it, _self, [&](deal &d) {
       d.status = DEAL_STATUS_PAID_PLAYCOIN_ING; //把状态改为放币中
@@ -703,7 +732,9 @@ void otcexchange::commit_deal(name who,
 ACTION otcexchange::mancldeal(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason)
 {
    require_auth(who);
-   deal_index_t dealtable_(_self, name{pair.to_string()}.value);
+   auto str_pair = pair.to_string();
+   str_pair = lower_str(str_pair);
+   deal_index_t dealtable_(_self, name{str_pair}.value);
    auto it = dealtable_.require_find(deal_id, "deal id 不存在");
 
    //检查一下status是否正确
@@ -717,16 +748,21 @@ ACTION otcexchange::mancldeal(const symbol_code &pair, name who, uint64_t deal_i
 //定时任务取消deal
 ACTION otcexchange::defcldeal(const symbol_code &pair, name who, uint64_t deal_id, uint8_t status, const std::string &reason)
 {
-   require_auth(who);
+   require_auth(_self);
    deal_index_t dealtable_(_self, name{pair.to_string()}.value);
    auto it = dealtable_.require_find(deal_id, "deal id 不存在");
 
    //检查一下status是否正确
-   check(it->status == DEAL_STATUS_UNPAID, "只有在未支付状态下才能手动取消交易");
-   bool who_taker_bid = (who == it->user) && (it->side == MARKET_ORDER_SIDE_BID);
-   bool who_maker_bid = (who == it->maker_user) && (it->side == MARKET_ORDER_SIDE_ASK);
-   check(who_taker_bid || who_maker_bid, "只有在买方未支付状态下才能手动取消交易");
-   rollback_deal(who, dealtable_, it, DEAL_STATUS_UNPAID_TIMEOUT_CANCEL, reason);
+   check(it->status == DEAL_STATUS_UNPAID || it->status == DEAL_STATUS_PAID_ARBIARATE_CANCEL, "只有在未支付状态或者仲裁取消状态下才能取消交易");
+   check(status == DEAL_STATUS_UNPAID_TIMEOUT_CANCEL || status == DEAL_STATUS_CANCEL_FINISHED, "status value invaid");
+   if (it->status == DEAL_STATUS_UNPAID)
+   {
+      bool who_taker_bid = (who == it->user) && (it->side == MARKET_ORDER_SIDE_BID);
+      bool who_maker_bid = (who == it->maker_user) && (it->side == MARKET_ORDER_SIDE_ASK);
+      check(who_taker_bid || who_maker_bid, "只有在买方未支付状态下买方超时取消交易");
+   }
+
+   rollback_deal(who, dealtable_, it, status, reason);
 }
 //定时任务提交deal
 ACTION otcexchange::defcmdeal(const symbol_code &pair, name who, uint64_t deal_id, uint8_t status, const std::string &reason)
@@ -736,11 +772,7 @@ ACTION otcexchange::defcmdeal(const symbol_code &pair, name who, uint64_t deal_i
    auto it = dealtable_.require_find(deal_id, "deal id 不存在");
 
    //检查一下status是否正确
-   check(it->status == DEAL_STATUS_UNPAID, "只有在未支付状态下才能手动取消交易"); //注意修改
-
-   bool who_taker_ask = (who == it->user) && (it->side == MARKET_ORDER_SIDE_ASK);
-   bool who_maker_ask = (who == it->maker_user) && (it->side == MARKET_ORDER_SIDE_BID);
-   check(who_taker_ask || who_maker_ask, "只有在买方未支付状态下才能手动取消交易");
+   check(it->status == DEAL_STATUS_PAID_PLAYCOIN_ING, "放币中才能放币"); //注意修改
    commit_deal(who, dealtable_, it, status, reason);
 }
 

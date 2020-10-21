@@ -38,8 +38,10 @@ public:
    //USING_ACTION(otcexchange, hi);
    ACTION newmarket(const symbol &stock,
                     const symbol &money,
-                    asset taker_fee_rate,
-                    asset maker_fee_rate,
+                    asset taker_ask_fee_rate,
+                    asset taker_bid_fee_rate,
+                    asset maker_ask_fee_rate,
+                    asset maker_bid_fee_rate,
                     asset amount_min,
                     asset amount_max,
                     asset price_min,
@@ -77,7 +79,7 @@ public:
 
    ACTION mancldeal(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason);
 
-   ACTION paydeal(const symbol_code &pair, name who, uint64_t deal_id);
+   ACTION paydeal(const symbol_code &pair, name who, uint64_t deal_id, uint8_t fiat_pay_method, const std::string &fiat_account);
 
    ACTION selfplaycoin(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason, bool right_now);
 
@@ -396,11 +398,14 @@ private:
 
    TABLE market
    {
-      symbol_code pair;                  //交易对
-      symbol stock;                      //coin 需要指定[代币精度,代币符号]
-      symbol money;                      //fiat 需要指定[法币精度,法币符合]
-      asset taker_fee_rate;              // taker手续费费率[数量,代币精度，代币符号]
-      asset maker_fee_rate;              // maker手续费费率[数量,代币精度，代币符号]
+      symbol_code pair;         //交易对
+      symbol stock;             //coin 需要指定[代币精度,代币符号]
+      symbol money;             //fiat 需要指定[法币精度,法币符合]
+      asset taker_ask_fee_rate; // taker手续费费率[数量,代币精度，代币符号]
+      asset taker_bid_fee_rate; // taker手续费费率[数量,代币精度，代币符号]
+      asset maker_ask_fee_rate; // maker手续费费率[数量,代币精度，代币符号]
+      asset maker_bid_fee_rate; // maker手续费费率[数量,代币精度，代币符号]
+
       asset amount_min;                  // 限定的最小交易数量  [数量，代币精度，代币符号]
       asset amount_max;                  // 限定的最大交易数量  [数量，代币精度，代币符号]
       asset price_min;                   // 限定的最小交易价格  [数量，代币精度，代币符号]
@@ -446,26 +451,27 @@ private:
       EOSLIB_SERIALIZE(overview, (stocks)(fiats)(pairs))
    };
    using overview_t = singleton<"ow"_n, overview>;
-   using overview_tt = multi_index<"ow"_n, overview>;
+   using overview_tt = multi_index<"ow"_n, overview>; // This next typedef is only here because of this bug: https://github.com/EOSIO/eosio.cdt/issues/280// Once that's fixed this can be removed.
    overview_t overview_;
 
    TABLE adorder
    {
-      uint64_t id;                    //广告订单id，自增主键,scope = pair+side.相当于盘口,卖盘，由小到大，买盘由大到小
-      name user;                      //广告订单所属用户，注意是name类型
-      symbol_code pair;               //广告订单的交易对
-      time_point ctime;               //广告订单创建时间，精确到微秒
-      time_point utime;               //广告订单更新时间，精确到微秒
-      uint8_t status;                 //广告订单状态，吃单和挂单的状态不同
-      uint8_t side;                   //买卖类型，1卖 2买
-      uint8_t type;                   //广告订单类型，1限价 2市价
-      uint8_t role;                   //广告订单类型，1挂单 2吃单
-      asset price;                    //广告订单交易价格
-      asset amount;                   //广告订单交易数量
-      asset amount_min;               //广告订单最小成交数量
-      asset amount_max;               //广告订单最大成交数量
-      asset taker_fee_rate;           //吃单的手续费率(只展示使用)
-      asset maker_fee_rate;           //挂单的手续费率（只展示使用）
+      uint64_t id;              //广告订单id，自增主键,scope = pair+side.相当于盘口,卖盘，由小到大，买盘由大到小
+      name user;                //广告订单所属用户，注意是name类型
+      symbol_code pair;         //广告订单的交易对
+      time_point ctime;         //广告订单创建时间，精确到微秒
+      time_point utime;         //广告订单更新时间，精确到微秒
+      uint8_t status;           //广告订单状态，吃单和挂单的状态不同
+      uint8_t side;             //买卖类型，1卖 2买
+      uint8_t type;             //广告订单类型，1限价 2市价
+      uint8_t role;             //广告订单类型，1挂单 2吃单
+      asset price;              //广告订单交易价格
+      asset amount;             //广告订单交易数量
+      asset amount_min;         //广告订单最小成交数量
+      asset amount_max;         //广告订单最大成交数量
+      asset maker_ask_fee_rate; //吃单的手续费率(只展示使用)
+      asset maker_bid_fee_rate; //挂单的手续费率（只展示使用）
+
       asset left;                     //剩余多少数量未成交
       asset freeze;                   //冻结的stock或者money,处于正在交易中,只有卖币挂单才有值
       asset deal_fee;                 //累计的交易手续费
@@ -614,16 +620,6 @@ private:
       return it;
    }
 
-   inline void erase_adorders(const symbol_code &pair, const std::string &side)
-   {
-      auto adtable_ = get_adtable(pair, side);
-      auto it = adtable_.begin();
-      while (it != adtable_.end())
-      {
-         it = adtable_.erase(it);
-      }
-   }
-
    inline std::string lower_str(const std::string &src)
    {
       std::string res{src};
@@ -667,12 +663,24 @@ private:
 
    void erase_deals(const symbol_code &pair)
    {
-      deal_index_t dealtable_(_self, name{pair.to_string()}.value);
+      auto str_pair = pair.to_string();
+      str_pair = lower_str(str_pair);
+      deal_index_t dealtable_(_self, name{str_pair}.value);
       auto it = dealtable_.begin();
 
       while (it != dealtable_.end())
       {
          it = dealtable_.erase(it);
+      }
+   }
+
+   inline void erase_adorders(const symbol_code &pair, const std::string &side)
+   {
+      auto adtable_ = get_adtable(pair, side);
+      auto it = adtable_.begin();
+      while (it != adtable_.end())
+      {
+         it = adtable_.erase(it);
       }
    }
 
