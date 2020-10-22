@@ -25,7 +25,8 @@ public:
                                                                               users_(self, self.value),
                                                                               arbiters_(self, self.value),
                                                                               judgers_(self, self.value),
-                                                                              overview_(self, self.value)
+                                                                              overview_(self, self.value),
+                                                                              log_(self, _self.value)
 
    {
       overview ow;
@@ -239,6 +240,14 @@ public:
    {
 
       print("Resending Transaction: ", error.sender_id);
+      log_.emplace(_self, [&](logitem &item) {
+         item.id = log_.available_primary_key();
+         item.ctime = CURRENT_SEC();
+         std::string s{"def transaction fail:"};
+         s.append(std::to_string(uint64_t(error.sender_id)));
+         item.msg = s;
+      });
+
       transaction dtrx = error.unpack_sent_trx();
       dtrx.delay_sec = 3;
 
@@ -265,6 +274,16 @@ private:
       std::string detail;   //详情
       uint64_t primary_key() const { return id; }
    };
+
+   TABLE logitem
+   {
+      uint64_t id; //时间id
+      time_point_sec ctime;
+      std::string msg;
+      uint64_t primary_key() const { return id; }
+   };
+   using log_index_t = multi_index<"log"_n, logitem>;
+   log_index_t log_;
 
    //用户表
    TABLE user
@@ -448,7 +467,8 @@ private:
       std::set<std::string> stocks;
       std::set<std::string> fiats;
       std::set<std::string> pairs;
-      EOSLIB_SERIALIZE(overview, (stocks)(fiats)(pairs))
+      std::map<std::string, uint8_t> precisions;
+      EOSLIB_SERIALIZE(overview, (stocks)(fiats)(pairs)(precisions))
    };
    using overview_t = singleton<"ow"_n, overview>;
    using overview_tt = multi_index<"ow"_n, overview>; // This next typedef is only here because of this bug: https://github.com/EOSIO/eosio.cdt/issues/280// Once that's fixed this can be removed.
@@ -462,6 +482,7 @@ private:
       time_point ctime;         //广告订单创建时间，精确到微秒
       time_point utime;         //广告订单更新时间，精确到微秒
       uint8_t status;           //广告订单状态，吃单和挂单的状态不同
+      std::string status_str;   //广告订单状态，吃单和挂单的状态不同
       uint8_t side;             //买卖类型，1卖 2买
       uint8_t type;             //广告订单类型，1限价 2市价
       uint8_t role;             //广告订单类型，1挂单 2吃单
@@ -483,6 +504,7 @@ private:
       uint64_t primary_key() const { return id; }                   // primary key auto increase
       uint64_t get_secondary_user() const { return user.value; }    // sort by user name，按用户名过滤
       uint64_t get_secondary_price() const { return price.amount; } // sort by price, ask increase bid of deincrease
+      uint64_t get_secondary_status() const { return status; }      // sort by price, ask increase bid of deincrease
       uint8_t update_ad_status(market_iter_t itr_pair)
       {
          //每次广告可交易数量变动后,对广告进行判断
@@ -492,17 +514,20 @@ private:
             if (left < itr_pair->amount_min)
             { //变动后交易数量小于交易对的最小交易数量时,状态改为自动下架
                status = AD_STATUS_AUT_OFFTHESHELF;
+               status_str = AD_STATUS_AUT_OFFTHESHELF_STR;
             }
          }
          else if (status == AD_STATUS_AUT_OFFTHESHELF) //如果是自动下架,比如吃单方撤单了
          {
             if (left >= itr_pair->amount_min) //自动下架且可交易数量>=交易对配置的最小交易数量时,状态改为上架中
             {
-               status = AD_STATUS_ONTHESHELF; //改为上架中
+               status = AD_STATUS_ONTHESHELF;         //改为上架中
+               status_str = AD_STATUS_ONTHESHELF_STR; //改为上架中
             }
             else if (left + freeze < itr_pair->amount_min) //自动下架且可交易数量+冻结数量<交易对最小交易数量时，状态改为已完成
             {
-               status = AD_STATUS_FINISHED; //已完成
+               status = AD_STATUS_FINISHED;         //已完成
+               status_str = AD_STATUS_FINISHED_STR; //已完成
             }
          }
 
@@ -513,7 +538,8 @@ private:
    using adorder_index_t = multi_index<"adorders"_n,
                                        adorder,
                                        indexed_by<"byuser"_n, const_mem_fun<adorder, uint64_t, &adorder::get_secondary_user>>,
-                                       indexed_by<"byprice"_n, const_mem_fun<adorder, uint64_t, &adorder::get_secondary_price>>
+                                       indexed_by<"byprice"_n, const_mem_fun<adorder, uint64_t, &adorder::get_secondary_price>>,
+                                       indexed_by<"bystatus"_n, const_mem_fun<adorder, uint64_t, &adorder::get_secondary_status>>
 
                                        >;
 
@@ -537,6 +563,7 @@ private:
       asset ask_fee;                    //收取的卖方手续费
       asset bid_fee;                    //收取的买方手续费
       uint8_t status;                   //成交的状态
+      std::string status_str;           //成交的状态字符串
       uint32_t pay_timeout;             //支付超时时间,
       uint64_t pay_timeout_sender_id;   //异步事物id
       uint64_t self_playcoin_sender_id; //异步事物id
@@ -550,11 +577,13 @@ private:
 
       uint64_t primary_key() const { return id; }
       uint64_t get_secondary_user() const { return user.value; }
+      uint64_t get_status() const { return status; }
    };
 
    using deal_index_t = multi_index<"deals"_n,
                                     deal,
-                                    indexed_by<"byuser"_n, const_mem_fun<deal, uint64_t, &deal::get_secondary_user>>
+                                    indexed_by<"byuser"_n, const_mem_fun<deal, uint64_t, &deal::get_secondary_user>>,
+                                    indexed_by<"bystatus"_n, const_mem_fun<deal, uint64_t, &deal::get_status>>
 
                                     >;
 
@@ -684,12 +713,25 @@ private:
       }
    }
 
+   inline std::string get_deal_status_str(uint8_t status)
+   {
+      if (status == DEAL_STATUS_UNPAID_MAN_CANCEL)
+         return DEAL_STATUS_UNPAID_MAN_CANCEL_STR;
+
+      if (status == DEAL_STATUS_UNPAID_TIMEOUT_CANCEL)
+         return DEAL_STATUS_UNPAID_TIMEOUT_CANCEL_STR;
+      if (status == DEAL_STATUS_CANCEL_FINISHED)
+         return DEAL_STATUS_CANCEL_FINISHED_STR;
+      if (status == DEAL_STATUS_SUCCESS_FINISHED)
+         return DEAL_STATUS_SUCCESS_FINISHED_STR;
+      return "";
+   }
+
    void get_avail_arbiter(std::set<name> & res, int num, const time_point_sec &ctime);
 
    int update_art(name arbiter, const symbol_code &pair, uint64_t deal_id, uint8_t choice, const std::string &reason);
 
-   void rollback_deal(name who,
-                      deal_index_t & dealtable_,
+   void rollback_deal(deal_index_t & dealtable_,
                       deal_iter_t itr_deal,
                       uint8_t status,
                       const std::string &reason);

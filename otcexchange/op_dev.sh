@@ -71,10 +71,16 @@ zz get currency balance eosio.token otcexchange
 zz get table eosio eosio voters 
 
 
+#升级
+zz  push action otcexchange rmmarkets '[]' -p otcexchange
+zz  push action otcexchange rmads '["ADXCNY","ask"]' -p otcexchange
+zz  push action otcexchange rmads '["ADXCNY","bid"]' -p otcexchange
+zz  push action otcexchange rmdeals '["ADXCNY"]' -p otcexchange
+
 
 
 # 2.1 创建交易对
-zz  push action otcexchange rmmarkets '[]' -p otcexchange
+
 zz  push action otcexchange rmads '[]' -p otcexchange
 zz  push action otcexchange rmdeals '[]' -p otcexchange
 
@@ -119,9 +125,7 @@ zz  push action otcexchange  putadorder '["ADXCNY","ask","zhouhao","100.00 CNY",
 #合约内联调用的权限
 zz  set account permission otcexchange  active --add-code 
 
-zz  push action otcexchange rmads '["ADXCNY","ask"]' -p otcexchange
-zz  push action otcexchange rmads '["ADXCNY","bid"]' -p otcexchange
-zz  push action otcexchange rmdeals '["ADXCNY"]' -p otcexchange
+
 zz get table otcexchange adxcnymkask adorders
 zz get table otcexchange adxcnymkbid adorders
 zz get table otcexchange adxcny deals
@@ -167,6 +171,7 @@ zz get table adxio.token dabaicai accounts
 
 
 
+
 #发1个广告买单，买50个ADX，价格是100.00CNY ，交易数量[1,50]
  zz  push action otcexchange  putadorder '["ADXCNY","bid","zhouhao","100.00 CNY","50.0000 ADX","1.0000 ADX","50.0000 ADX","zh要买ADXCNY 50.0000 ADX,价格是100.00 CNY"]' -p zhouhao@active
 
@@ -176,7 +181,7 @@ zz get table adxio.token dabaicai accounts
 
  #ACTION mancldeal(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason);
 
-  zz  push action otcexchange mancldeal '["ADXCNY","zhouhao",5,"taker手动取消"]' -p zhouhao@active 
+  zz  push action otcexchange mancldeal '["ADXCNY","zhouhao",6,"买方手动取消"]' -p zhouhao@active 
 
   #ACTION paydeal(const symbol_code &pair, name who, uint64_t deal_id)
 
@@ -184,4 +189,24 @@ zz get table adxio.token dabaicai accounts
 
   #ACTION selfplaycoin(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason, bool right_now)
    zz  push action otcexchange selfplaycoin '["ADXCNY","dabaicai",4,"放币",true]' -p dabaicai@active 
+
+
+    #买方支付超时自动取消
+    zz  push action otcexchange puttkorder '["ADXCNY","ask","dabaicai","50.00 CNY","10.0000 ADX",0,"taker是卖币吃单"]' -p dabaicai@active 
+    
+    #整个流程
+    zz  push action otcexchange puttkorder '["ADXCNY","ask","dabaicai","50.00 CNY","10.0000 ADX",0,"taker是卖币吃单"]' -p dabaicai@active 
+    zz  push action otcexchange paydeal '["ADXCNY","zhouhao",1,1,"银行卡付钱"]' -p zhouhao@active 
+    zz  push action otcexchange selfplaycoin '["ADXCNY","dabaicai",1,"放币",false]' -p dabaicai@active 
+
+    #买方手动取消
+    zz  push action otcexchange puttkorder '["ADXCNY","ask","dabaicai","50.00 CNY","10.0000 ADX",0,"taker是卖币吃单"]' -p dabaicai@active
+    zz  push action otcexchange mancldeal '["ADXCNY","zhouhao",2,"买方手动取消"]' -p zhouhao@active 
+
+
+#
+ zz  push action otcexchange  putadorder '["ADXCNY","bid","zhouhao","100.00 CNY","100.0000 ADX","1.0000 ADX","100.0000 ADX","zh要买ADXCNY 100.0000 ADX,价格是100.00 CNY"]' -p zhouhao@active
+  #ACTION defcldeal(const symbol_code &pair, name who, uint64_t deal_id, uint8_t status, const std::string &reason);
+
+  zz  push action otcexchange defcldeal '["ADXCNY","zhouhao",7,62,"taker是卖币吃单，测试"]' -p zhouhao@active 
 

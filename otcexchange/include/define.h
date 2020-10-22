@@ -4,6 +4,7 @@
 //symbol
 #define USING_ACTION(contract_name, action_name) using action_name##_action = action_wrapper<#action_name##_n, &contract_name::action_name>
 #define ZERO_ASSET(symbol) (asset(0, symbol))
+#define CURRENT_SEC() (time_point_sec(current_time_point().sec_since_epoch()))
 
 #define TOKEN_CONTRACT_NAME "eosio.token"
 #define TOKEN_CONTRACT_TRANSFER_ACTION "transfer"
@@ -26,29 +27,47 @@
 #define BALANCE_TYPE_AVAILABLE 1
 #define BALANCE_TYPE_FREEZE 2
 
-#define DEAL_STATUS_UNPAID 10 //未付款
+#define DEAL_STATUS_UNPAID 10             //未付款
+#define DEAL_STATUS_UNPAID_STR "wait pay" //未付款
 
 #define DEAL_STATUS_PAID_WAIT_PLAYCOIN 20 //已付款等待放币
-#define DEAL_STATUS_PAID_APPEAL_ASK 21    //已付款待放币(买卖方都可以申述)广告方申诉
-#define DEAL_STATUS_PAID_APPEAL_BID 22    //已付款待放币(买卖方都可以申述)吃单方申诉
-#define DEAL_STATUS_PAID_APPEAL_ALL 23    //已付款待放币(买卖方都可以申述)双方申诉
+#define DEAL_STATUS_PAID_WAIT_PLAYCOIN_STR "payed,wait playcoin"
+#define DEAL_STATUS_PAID_APPEAL_ASK 21                                //已付款待放币(买卖方都可以申述)广告方申诉
+#define DEAL_STATUS_PAID_APPEAL_ASK_STR "asker appeal"                //已付款待放币(买卖方都可以申述)广告方申诉
+#define DEAL_STATUS_PAID_APPEAL_BID 22                                //已付款待放币(买卖方都可以申述)吃单方申诉
+#define DEAL_STATUS_PAID_APPEAL_BID_STR "bider appeal"                //已付款待放币(买卖方都可以申述)吃单方申诉
+#define DEAL_STATUS_PAID_APPEAL_ALL 23                                //已付款待放币(买卖方都可以申述)双方申诉
+#define DEAL_STATUS_PAID_APPEAL_ALL_STR "asker and bider both appeal" //已付款待放币(买卖方都可以申述)双方申诉
 
-#define DEAL_STATUS_PAID_ARBIARATE_ING 30      //已付款待放币仲裁中
-#define DEAL_STATUS_PAID_ARBIARATE_CANCEL 31   //已付款待放币仲裁取消结果，合约修改的
-#define DEAL_STATUS_PAID_ARBIARATE_PALYCOIN 32 //已付款待放币仲裁放币结果，合约修改
+#define DEAL_STATUS_PAID_ARBIARATE_ING 30                                 //已付款待放币仲裁中
+#define DEAL_STATUS_PAID_ARBIARATE_ING_STR "arbiarating"                  //已付款待放币仲裁中
+#define DEAL_STATUS_PAID_ARBIARATE_CANCEL 31                              //已付款待放币仲裁取消结果，合约修改的
+#define DEAL_STATUS_PAID_ARBIARATE_CANCEL_STR "arbiarate cancel playcoin" //已付款待放币仲裁取消结果，合约修改的
+#define DEAL_STATUS_PAID_ARBIARATE_PALYCOIN 32                            //已付款待放币仲裁放币结果，合约修改
+#define DEAL_STATUS_PAID_ARBIARATE_PALYCOIN_STR "arbiarate palycoin"      //已付款待放币仲裁放币结果，合约修改
 
-#define DEAL_STATUS_PAID_JUDGING 40        //终审中
-#define DEAL_STATUS_PAID_JUDGE_CANCEL 41   //终审结果为取消放币
-#define DEAL_STATUS_PAID_JUDGE_PLAYCOIN 42 //终审结果为放币
+#define DEAL_STATUS_PAID_JUDGING 40                               //终审中
+#define DEAL_STATUS_PAID_JUDGING_STR "judging"                    //终审中
+#define DEAL_STATUS_PAID_JUDGE_CANCEL 41                          //终审结果为取消放币
+#define DEAL_STATUS_PAID_JUDGE_CANCEL_STR "judge cancel playcoin" //终审结果为取消放币
+#define DEAL_STATUS_PAID_JUDGE_PLAYCOIN 42                        //终审结果为放币
+#define DEAL_STATUS_PAID_JUDGE_PLAYCOIN_STR "judge playcoin"      //终审结果为放币
 
-#define DEAL_STATUS_PAID_CANCEL_ING 50   //取消卖方放币中
-#define DEAL_STATUS_PAID_PLAYCOIN_ING 51 //卖方放币中
+#define DEAL_STATUS_PAID_CANCEL_ING 50               //取消卖方放币中
+#define DEAL_STATUS_PAID_CANCEL_ING_STR "取消延迟中" //取消卖方放币中
+
+#define DEAL_STATUS_PAID_PLAYCOIN_ING 51               //卖方放币中
+#define DEAL_STATUS_PAID_PLAYCOIN_ING_STR "放币延迟中" //卖方放币中
 
 //最终状态
-#define DEAL_STATUS_UNPAID_MAN_CANCEL 61     //未付款手动取消
-#define DEAL_STATUS_UNPAID_TIMEOUT_CANCEL 62 //未付款超时取消
-#define DEAL_STATUS_CANCEL_FINISHED 63       //取消完成
-#define DEAL_STATUS_SUCCESS_FINISHED 64      //放币完成
+#define DEAL_STATUS_UNPAID_MAN_CANCEL 61                                                      //未付款手动取消
+#define DEAL_STATUS_UNPAID_MAN_CANCEL_STR "bider man cancel deal"                             //未付款手动取消
+#define DEAL_STATUS_UNPAID_TIMEOUT_CANCEL 62                                                  //未付款超时取消
+#define DEAL_STATUS_UNPAID_TIMEOUT_CANCEL_STR "system cancel deal because bider fiat timeout" //未付款超时取消
+#define DEAL_STATUS_CANCEL_FINISHED 63                                                        //取消完成
+#define DEAL_STATUS_CANCEL_FINISHED_STR "deal cancel"                                         //取消完成
+#define DEAL_STATUS_SUCCESS_FINISHED 64                                                       //放币完成
+#define DEAL_STATUS_SUCCESS_FINISHED_STR "deal success"                                       //放币完成
 
 #define MARKET_STATUS_ON 1  //允许交易
 #define MARKET_STATUS_OFF 2 //不允许交易
@@ -83,11 +102,16 @@
 #define MARKET_STATUS_ON_STR "allow trade"      //允许交易
 #define MARKET_STATUS_OFF_STR "not allow trade" //不允许交易
 
-#define AD_STATUS_ONTHESHELF 1      //上架中
-#define AD_STATUS_MAN_OFFTHESHELF 2 //手动下架
-#define AD_STATUS_AUT_OFFTHESHELF 3 //自动下架
-#define AD_STATUS_CANCELED 4        //已撤销
-#define AD_STATUS_FINISHED 5        //已完成
+#define AD_STATUS_ONTHESHELF 1                               //上架中
+#define AD_STATUS_ONTHESHELF_STR "on the shelf"              //上架中
+#define AD_STATUS_MAN_OFFTHESHELF 2                          //手动下架
+#define AD_STATUS_MAN_OFFTHESHELF_STR "manual off the shelf" //手动下架
+#define AD_STATUS_AUT_OFFTHESHELF 3                          //自动下架
+#define AD_STATUS_AUT_OFFTHESHELF_STR "auto off the shelf"   //自动下架
+#define AD_STATUS_CANCELED 4                                 //已撤销
+#define AD_STATUS_CANCELED_STR "canceled"                    //已撤销
+#define AD_STATUS_FINISHED 5                                 //已完成
+#define AD_STATUS_FINISHED_STR "finished"                    //已完成
 
 #define FIAT_PAY_UNKOWN 0 //未知
 #define FIAT_PAY_BANK 1   //银行卡支付
