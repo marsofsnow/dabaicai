@@ -4,7 +4,7 @@
 //symbol
 #define USING_ACTION(contract_name, action_name) using action_name##_action = action_wrapper<#action_name##_n, &contract_name::action_name>
 #define ZERO_ASSET(symbol) (asset(0, symbol))
-#define CURRENT_SEC() (time_point_sec(current_time_point().sec_since_epoch()))
+#define CURRENT_SEC (time_point_sec(current_time_point().sec_since_epoch()))
 
 #define TOKEN_CONTRACT_NAME "eosio.token"
 #define TOKEN_CONTRACT_TRANSFER_ACTION "transfer"
@@ -12,6 +12,9 @@
 
 #define ARBUSER_STATUS_WORKING 1
 #define ARBUSER_STATUS_NOTWORKING 2
+
+#define ARBUSER_STATUS_REGED 1   //已经注册
+#define ARBUSER_STATUS_UNREGED 2 //解除注册
 
 #define GROUP_ARBPEOPLE_NUM 5
 
@@ -27,18 +30,25 @@
 #define BALANCE_TYPE_AVAILABLE 1
 #define BALANCE_TYPE_FREEZE 2
 
+//未付款
 #define DEAL_STATUS_UNPAID 10             //未付款
 #define DEAL_STATUS_UNPAID_STR "wait pay" //未付款
 
+//已付款
 #define DEAL_STATUS_PAID_WAIT_PLAYCOIN 20 //已付款等待放币
 #define DEAL_STATUS_PAID_WAIT_PLAYCOIN_STR "payed,wait playcoin"
-#define DEAL_STATUS_PAID_APPEAL_ASK 21                                //已付款待放币(买卖方都可以申述)广告方申诉
+
+#define DEAL_STATUS_PAID_PLAYCOIN_ING 21               //卖方放币中
+#define DEAL_STATUS_PAID_PLAYCOIN_ING_STR "放币延迟中" //卖方放币中
+
+#define DEAL_STATUS_PAID_APPEAL_ASK 22                                //已付款待放币(买卖方都可以申述)广告方申诉
 #define DEAL_STATUS_PAID_APPEAL_ASK_STR "asker appeal"                //已付款待放币(买卖方都可以申述)广告方申诉
-#define DEAL_STATUS_PAID_APPEAL_BID 22                                //已付款待放币(买卖方都可以申述)吃单方申诉
+#define DEAL_STATUS_PAID_APPEAL_BID 23                                //已付款待放币(买卖方都可以申述)吃单方申诉
 #define DEAL_STATUS_PAID_APPEAL_BID_STR "bider appeal"                //已付款待放币(买卖方都可以申述)吃单方申诉
-#define DEAL_STATUS_PAID_APPEAL_ALL 23                                //已付款待放币(买卖方都可以申述)双方申诉
+#define DEAL_STATUS_PAID_APPEAL_ALL 24                                //已付款待放币(买卖方都可以申述)双方申诉
 #define DEAL_STATUS_PAID_APPEAL_ALL_STR "asker and bider both appeal" //已付款待放币(买卖方都可以申述)双方申诉
 
+//开始仲裁
 #define DEAL_STATUS_PAID_ARBIARATE_ING 30                                 //已付款待放币仲裁中
 #define DEAL_STATUS_PAID_ARBIARATE_ING_STR "arbiarating"                  //已付款待放币仲裁中
 #define DEAL_STATUS_PAID_ARBIARATE_CANCEL 31                              //已付款待放币仲裁取消结果，合约修改的
@@ -46,28 +56,31 @@
 #define DEAL_STATUS_PAID_ARBIARATE_PALYCOIN 32                            //已付款待放币仲裁放币结果，合约修改
 #define DEAL_STATUS_PAID_ARBIARATE_PALYCOIN_STR "arbiarate palycoin"      //已付款待放币仲裁放币结果，合约修改
 
-#define DEAL_STATUS_PAID_JUDGING 40                               //终审中
-#define DEAL_STATUS_PAID_JUDGING_STR "judging"                    //终审中
-#define DEAL_STATUS_PAID_JUDGE_CANCEL 41                          //终审结果为取消放币
-#define DEAL_STATUS_PAID_JUDGE_CANCEL_STR "judge cancel playcoin" //终审结果为取消放币
-#define DEAL_STATUS_PAID_JUDGE_PLAYCOIN 42                        //终审结果为放币
-#define DEAL_STATUS_PAID_JUDGE_PLAYCOIN_STR "judge playcoin"      //终审结果为放币
+//开始终审
+#define DEAL_STATUS_PAID_JUDGING 40            //终审中
+#define DEAL_STATUS_PAID_JUDGING_STR "judging" //终审中
 
-#define DEAL_STATUS_PAID_CANCEL_ING 50               //取消卖方放币中
-#define DEAL_STATUS_PAID_CANCEL_ING_STR "取消延迟中" //取消卖方放币中
-
-#define DEAL_STATUS_PAID_PLAYCOIN_ING 51               //卖方放币中
-#define DEAL_STATUS_PAID_PLAYCOIN_ING_STR "放币延迟中" //卖方放币中
-
-//最终状态
-#define DEAL_STATUS_UNPAID_MAN_CANCEL 61                                                      //未付款手动取消
+//没有仲裁和终审时的最终状态
+#define DEAL_STATUS_UNPAID_MAN_CANCEL 51                                                      //未付款手动取消
 #define DEAL_STATUS_UNPAID_MAN_CANCEL_STR "bider man cancel deal"                             //未付款手动取消
-#define DEAL_STATUS_UNPAID_TIMEOUT_CANCEL 62                                                  //未付款超时取消
-#define DEAL_STATUS_UNPAID_TIMEOUT_CANCEL_STR "system cancel deal because bider fiat timeout" //未付款超时取消
-#define DEAL_STATUS_CANCEL_FINISHED 63                                                        //取消完成
-#define DEAL_STATUS_CANCEL_FINISHED_STR "deal cancel"                                         //取消完成
-#define DEAL_STATUS_SUCCESS_FINISHED 64                                                       //放币完成
+#define DEAL_STATUS_UNPAID_TIMEOUT_CANCEL 52                                                  //未付款超时取消
+#define DEAL_STATUS_UNPAID_TIMEOUT_CANCEL_STR "system cancel deal because bider fiat timeout" //未付款超时取消 \
+                                                                                              //取消完成
+#define DEAL_STATUS_SUCCESS_FINISHED 53                                                       //放币完成
 #define DEAL_STATUS_SUCCESS_FINISHED_STR "deal success"                                       //放币完成
+
+//有仲裁没有终审时的最终状态
+#define DEAL_STATUS_ARB_CANCEL_FINISHED 54                                //取消完成
+#define DEAL_STATUS_ARB_CANCEL_FINISHED_STR "arb deal cancel"             //取消完成
+#define DEAL_STATUS_ARB_PLAYCOIN_FINISHED 55                              //放币完成
+#define DEAL_STATUS_ARB_PLAYCOIN_FINISHED_STR "arb deal playcoin success" //放币完成
+
+//终审时的最终状态
+#define DEAL_STATUS_JUD_CANCEL_FINISHED 56                      //取消完成
+#define DEAL_STATUS_JUD_CANCEL_FINISHED_STR "judge deal cancel" //取消完成
+
+#define DEAL_STATUS_JUD_PLAYCOIN_FINISHED 57                                //放币完成
+#define DEAL_STATUS_JUD_PLAYCOIN_FINISHED_STR "judge deal playcoin success" //放币完成
 
 #define MARKET_STATUS_ON 1  //允许交易
 #define MARKET_STATUS_OFF 2 //不允许交易
@@ -83,21 +96,47 @@
 #define JUDGE_YES 1
 #define JUDGE_NO 2
 
-//仲裁订单的状态
-#define ARBDEAL_STATUS_CREATED 1
-#define ARBORDER_STATUS_STARTED 2
-#define ARBORDER_STATUS_YES 3
-#define ARBORDER_STATUS_NO 4
-#define ARBORDER_STATUS_NO_JUDGE_OVER 5
-#define ARBORDER_STATUS_JUDGE_STARTED 6
-#define ARBORDER_STATUS_JUDGE_YES 7
-#define ARBORDER_STATUS_JUDGE_NO 8
-#define ARBORDER_STATUS_JUDGE_OVER 9
+#define DAY_SECONDS 86400
 
-//仲裁状态,在仲裁流水里显示
-#define ARBITLOG_STATUS_WAIT 1   //等待仲裁
-#define ARBITLOG_STATUS_PAYED 2  //仲裁结果出来了，已结算,非恶意仲裁
-#define ARBITLOG_STATUS_ANIMUS 3 //仲裁结果出来了，恶意仲裁
+// 仲裁订单的状态
+#define APPEAL_STATUS_CREATED 1                    //仲裁订单被创建
+#define APPEAL_STATUS_CREATED_STR "仲裁订单被创建" //仲裁订单被创建
+
+#define APPEAL_STATUS_ARB_ING 2 //仲裁中
+#define APPEAL_STATUS_ARB_ING_STR "仲裁中"
+
+#define APPEAL_STATUS_ARB_YES 3 //仲裁放币
+#define APPEAL_STATUS_ARB_YES_STR "仲裁放币"
+
+#define APPEAL_STATUS_ARB_NO 4 //仲裁取消
+#define APPEAL_STATUS_ARB_NO_STR "仲裁取消"
+
+#define APPEAL_STATUS_JUDGE_STARTED 5 //开始终审
+#define APPEAL_STATUS_JUDGE_STARTED_STR "开始终审"
+
+#define APPEAL_STATUS_JUDGE_YES 6 //终审确认
+#define APPEAL_STATUS_JUDGE_YES_STR "终审确认"
+
+#define APPEAL_STATUS_JUDGE_NO 7 //终审取消
+#define APPEAL_STATUS_JUDGE_NO_STR "终审取消"
+
+#define ARBTASK_STATUS_CREATED 1
+#define ARBTASK_STATUS_CREATED_STR "仲裁任务生成,待仲裁"
+
+#define ARBTASK_STATUS_YES 2
+#define ARBTASK_STATUS_YES_STR "已仲裁，仲裁放币"
+
+#define ARBTASK_STATUS_NO 3
+#define ARBTASK_STATUS_NO_STR "已仲裁，仲裁取消"
+
+#define ARBTASK_STATUS_WAIT_SETTLE 4
+#define ARBTASK_STATUS_WAIT_SETTLE_STR "等待收益结算，午夜12点结算"
+
+#define ARBTASK_STATUS_SETTLE_PLUS 5
+#define ARBTASK_STATUS_SETTLE_PLUS_STR "仲裁正确,奖励:"
+
+#define ARBTASK_STATUS_SETTLE_MINUS 6
+#define ARBTASK_STATUS_SETTLE_MINUS_STR "恶意仲裁，惩罚:"
 
 #define MARKET_STATUS_ON_STR "allow trade"      //允许交易
 #define MARKET_STATUS_OFF_STR "not allow trade" //不允许交易

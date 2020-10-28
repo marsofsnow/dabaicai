@@ -151,9 +151,135 @@ ACTION otcexchange::openmarket(const symbol_code &pair)
    }
 }
 
+ACTION otcexchange::regarbiter(name arbitername, const symbol_code &stock, asset mortgage, uint8_t today_begin, uint8_t today_end)
+{
+   // 注册成为仲裁员
+   require_auth(arbitername);
+
+   auto state = overview_.get();
+   auto it_precision = state.precisions.find(stock.to_string());
+   check(it_precision != state.precisions.end(), "代币不存在，请先创建代币的交易对");
+   asset zero = asset(0, symbol(stock, it_precision->second));
+   check(mortgage >= zero, "抵押代币必须大于0");
+
+   auto it = arbsts_.require_find(stock.raw(), "找不到仲裁等级配置项");
+   //确定在哪个等级
+   uint8_t level = 0;
+   for (auto &item : it->vec_level)
+   {
+      if (mortgage >= item)
+      {
+         ++level;
+         continue;
+      }
+      else
+      {
+         break;
+      }
+   }
+   check(level > 0 && level <= 10, "level 不在[1,10],错误");
+
+   std::string str_stock = stock.to_string();
+   str_stock = lower_str(str_stock);
+
+   arbiter_index_t arbiters_(_self, name{str_stock}.value);
+
+   auto it_user = arbiters_.find(arbitername.value);
+
+   check(it_user == arbiters_.end(), "该用户该币中已经是仲裁者");
+   if (it_user == arbiters_.end())
+   {
+      arbiters_.emplace(_self, [&](arbiter &a) {
+         a.account = arbitername;
+         a.stock = stock;
+
+         a.balance = mortgage; //质押还剩下的代币余额
+         a.mortgage = mortgage;
+         a.today_revenue = zero;
+         a.today_predict_revenue = zero;
+         a.today_revenue = zero;
+         a.ctime = CURRENT_SEC;
+         a.utime = a.ctime;
+         a.last_arb_time = time_point_sec();
+         a.total_num = 0; //仲裁总场次
+         a.win_num = 0;   //仲裁胜利场次
+         a.today_win_num = 0;
+         a.is_arbiting = ARBUSER_STATUS_NOTWORKING; //是否正在仲裁中
+         a.online_beg_time = today_begin * 60 * 60; //在线开始时间[0,24] 精确到秒
+         a.online_end_time = today_end * 60 * 60;   //在线结束时间[0,24] 精确到秒
+         a.level = level;                           //仲裁员配置信息
+         a.status = ARBUSER_STATUS_REGED;           //注册中
+      });
+      auto memo = std::string("成为仲裁者，抵押:").append(mortgage.to_string());
+      print(memo);
+      freeze_stock(arbitername, name{TOKEN_TEMP_ACCOUNT}, mortgage, USER_TYPE_ARB, memo);
+   }
+}
+
+ACTION otcexchange::unregarbiter(name arbitername, const symbol_code &stock, const std::string &reason)
+{
+   std::string str_stock = stock.to_string();
+   str_stock = lower_str(str_stock);
+   arbiter_index_t arbiters_(_self, name{str_stock}.value);
+
+   auto it_user = arbiters_.find(arbitername.value);
+
+   check(it_user == arbiters_.end(), "该用户该币种还没有注册成为仲裁者");
+   check(it_user->is_arbiting == ARBUSER_STATUS_NOTWORKING, "该用户该币种还有仲裁任务");
+   check(it_user->status == ARBUSER_STATUS_REGED, "该用户该币种不是注册状态");
+   arbiters_.modify(it_user, _self, [&](arbiter &a) {
+      a.utime = CURRENT_SEC;
+      a.status = ARBUSER_STATUS_UNREGED;
+   });
+}
+ACTION otcexchange::newarbst(const symbol_code &stock, const std::vector<asset> &vec_level)
+{
+   require_auth(_self);
+   check(!vec_level.empty() && vec_level.size() <= 10, "最多10档");
+   auto it = arbsts_.find(stock.raw()); //primary_key
+
+   auto state = overview_.get();
+   auto it1 = state.precisions.find(stock.to_string());
+   check(it1 != state.precisions.end(), "代币不存在，请先创建代币的交易对");
+
+   asset zero = asset(0, symbol(stock, it1->second));
+   for (auto &item : vec_level)
+   {
+      check(item != zero, "vec_level 存在非法的代币");
+   }
+   auto vec = vec_level;
+   //对vector排序
+   std::sort(vec.begin(), vec.end());
+
+   if (it == arbsts_.end())
+   {
+      arbsts_.emplace(_self, [&](arbst &s) {
+         s.stock = stock;
+         s.vec_level = vec;
+         s.ctime = CURRENT_SEC;
+         s.utime = CURRENT_SEC;
+      });
+   }
+}
+
+ACTION otcexchange::rmarbst(const symbol_code &stock)
+{
+   require_auth(_self);
+   auto t = stock.to_string();
+   t.append(" arbst not exist");
+   auto it = arbsts_.require_find(stock.raw(), t.c_str());
+   arbsts_.erase(it);
+}
+
+ACTION otcexchange::rmarbsts()
+{
+   require_auth(_self);
+   erase_arbsts();
+}
+
 ACTION otcexchange::rmmarket(const symbol_code &stock, const symbol_code &money)
 {
-   require_auth(_self); //必须要求是合约账号的权限+table是合约范围内的
+   require_auth(_self);
    auto s1 = stock.to_string();
    auto m1 = money.to_string();
    symbol_code pair(s1 + m1);
@@ -216,6 +342,8 @@ ACTION otcexchange::putadorder(const symbol_code &pair,
                                asset amount,
                                asset amount_min,
                                asset amount_max,
+                               const std::vector<uint64_t> &pay_accounts,
+                               const std::vector<uint8_t> &pay_ways,
                                const std::string &source)
 {
    require_auth(user);
@@ -226,6 +354,8 @@ ACTION otcexchange::putadorder(const symbol_code &pair,
    check(price > itr_pair->zero_money, ERR_MSG_PARAM_LT_ZERO(50210, price, ERR_MSG_PARAM_AD_PRICE_MUST_GT_ZERO));
    check(price >= itr_pair->price_min, "广告交易价格小于合约配置最低价"); //提示用户卖出最低价不能小于XX
    check(price <= itr_pair->price_max, "广告交易价格大于合约配置最高价"); //提示用户买入最高价不能大于XX
+   //check(pay_accounts.size() > 0, "广告主必须提供一种法币支付帐号");
+   check(pay_ways.size() > 0, "广告主必须提供一种法币支付方式");
 
    //判断交易数量是否在交易对配置区间
    check(amount > itr_pair->zero_stock, ERR_MSG_PARAM_LT_ZERO(50211, amount, ERR_MSG_PARAM_AD_AMOUNT_MUST_GT_ZERO));
@@ -279,7 +409,9 @@ ACTION otcexchange::putadorder(const symbol_code &pair,
       order.deal_fee = itr_pair->zero_stock;                   //累计的交易手续费
       order.deal_stock = itr_pair->zero_stock;                 //累计的交易sotck数量
       order.deal_money = itr_pair->zero_money;                 //累计的交易money
-      order.source = source;                                   //备注信息，订单来源
+      order.pay_accounts = pay_accounts;                       //支付方式
+      order.pay_ways = pay_ways;
+      order.source = source; //备注信息，订单来源
    });
 
    print("广告上架成功");
@@ -309,7 +441,6 @@ ACTION otcexchange::offad(const symbol_code &pair,
       //ad下面挂的吃单都是这几种，才能撤销广告
       check((d->status == DEAL_STATUS_UNPAID_MAN_CANCEL ||
              d->status == DEAL_STATUS_UNPAID_TIMEOUT_CANCEL ||
-             d->status == DEAL_STATUS_CANCEL_FINISHED ||
              d->status == DEAL_STATUS_SUCCESS_FINISHED),
             "有正在交易的taker deal,不能下架");
    }
@@ -341,11 +472,14 @@ ACTION otcexchange::puttkorder(const symbol_code &pair,
                                asset price,
                                asset amount,
                                uint64_t ad_id,
+                               const std::vector<uint64_t> &pay_accounts,
+                               const std::vector<uint8_t> &pay_ways,
                                const std::string &source)
 
 {
 
    require_auth(user);
+   check(!pay_ways.empty(), "支付方式不能为空");
 
    auto itr_pair = get_open_market(pair);
 
@@ -358,23 +492,14 @@ ACTION otcexchange::puttkorder(const symbol_code &pair,
    check((side == MARKET_ORDER_SIDE_ASK_STR || side == MARKET_ORDER_SIDE_BID_STR), ERR_MSG_SIDE);
 
    //1.找到对手方订单的买卖的方向
-   std::string mk_side("");
-   if (side == MARKET_ORDER_SIDE_ASK_STR)
-   {
-      mk_side = MARKET_ORDER_SIDE_BID_STR;
-   }
-   else
-   {
-      mk_side = MARKET_ORDER_SIDE_ASK_STR;
-   }
+   std::string mk_side = (side == MARKET_ORDER_SIDE_ASK_STR) ? MARKET_ORDER_SIDE_BID_STR : MARKET_ORDER_SIDE_ASK_STR;
 
    std::string scope_maker = pair.to_string() + MARKET_ROLE_MAKER_STR + mk_side;
-   std::transform(scope_maker.begin(), scope_maker.end(), scope_maker.begin(), ::tolower); //scope要求是小写
-
+   scope_maker = lower_str(scope_maker);
    adorder_index_t adtable_(_self, name{scope_maker}.value);
    //要求挂单必须存在
    auto mk_it = adtable_.require_find(ad_id, MAKER_ORDER_NOR_EXIST_STR);
-   check(mk_it->status == AD_STATUS_ONTHESHELF, "广告必须是上架中");
+   check(mk_it->status == AD_STATUS_ONTHESHELF, "广告必须是上架中"); //todo 提示翻译
 
    //获取挂单的用户
    const auto &mk_user = mk_it->user;
@@ -402,7 +527,7 @@ ACTION otcexchange::puttkorder(const symbol_code &pair,
       print("我是卖币，我出的卖价<=买家的买价");
 
       //冻结我的币,提示用户您的余额不足
-      freeze_stock(user, name{TOKEN_TEMP_ACCOUNT}, amount, USER_TYPE_OTC, std::string("taker 卖币,需要冻结,把钱转到合约帐号:").append(amount.to_string()));
+      freeze_stock(user, name{TOKEN_TEMP_ACCOUNT}, amount, USER_TYPE_OTC, std::string("taker 卖币,冻结").append(amount.to_string()));
 
       print("我要卖币给广告方，可用余额够", user.to_string()); //这里要发送一笔转账,也就是先要冻结
    }
@@ -419,9 +544,8 @@ ACTION otcexchange::puttkorder(const symbol_code &pair,
 
    dealtable_.emplace(user, [&](deal &deal) {
       deal.id = deal_id;
-      deal.user = user;    //订单所属用户，注意是name类型
-      deal.side = tk_side; //买卖类型，1卖 2买
-
+      deal.user = user;                    //订单所属用户，注意是name类型
+      deal.side = tk_side;                 //买卖类型，1卖 2买
       deal.type = MARKET_ORDER_TYPE_LIMIT; //订单类型，1限价 2市价
       deal.role = MARKET_ROLE_TAKER;       //订单类型，1挂单 2吃单
       deal.ctime = now;                    //订单创建时间，精确到微秒
@@ -438,12 +562,20 @@ ACTION otcexchange::puttkorder(const symbol_code &pair,
       deal.quota = (price * amount.amount) / pr; //算一下交易额是多少,也就是买币方要支付的法币
 
       if (tk_side == MARKET_ORDER_SIDE_ASK)
-      {                                                                      //假如我是卖币
+      {
+         deal.ask_pay_accounts = pay_accounts;
+         deal.ask_pay_ways = pay_ways;
+         deal.bid_pay_accounts = mk_it->pay_accounts;
+         deal.bid_pay_ways = mk_it->pay_ways;                                //假如我是卖币
          deal.ask_fee = amount.amount * (itr_pair->taker_ask_fee_rate) / pr; //2个不同精度的asset能不能互相需要验证一下
          deal.bid_fee = amount.amount * (itr_pair->maker_bid_fee_rate) / pr;
       }
       else
       {
+         deal.bid_pay_accounts = pay_accounts;
+         deal.bid_pay_ways = pay_ways;
+         deal.ask_pay_accounts = mk_it->pay_accounts;
+         deal.bid_pay_ways = mk_it->pay_ways;
          deal.ask_fee = amount.amount * (itr_pair->maker_ask_fee_rate) / pr;
          deal.bid_fee = amount.amount * (itr_pair->taker_bid_fee_rate) / pr;
       }
@@ -496,10 +628,26 @@ ACTION otcexchange::puttkorder(const symbol_code &pair,
    printf("Sent with a delay of %d ", t.delay_sec);
 }
 
-//法币支付发点击了已支付
-ACTION otcexchange::paydeal(const symbol_code &pair, name who, uint64_t deal_id, uint8_t fiat_pay_method, const std::string &fiat_account) //支付
+ACTION otcexchange::mancldeal(const symbol_code &pair, name bider, uint64_t deal_id, const std::string &reason)
 {
-   require_auth(who);
+   require_auth(bider);
+   auto str_pair = pair.to_string();
+   str_pair = lower_str(str_pair);
+   deal_index_t dealtable_(_self, name{str_pair}.value);
+   auto it = dealtable_.require_find(deal_id, "deal id 不存在");
+
+   //检查一下status是否正确
+   check(it->status == DEAL_STATUS_UNPAID, "只有在未支付状态下才能手动取消交易");
+   bool who_taker_bid = (bider == it->user) && (it->side == MARKET_ORDER_SIDE_BID);
+   bool who_maker_bid = (bider == it->maker_user) && (it->side == MARKET_ORDER_SIDE_ASK);
+   check(who_taker_bid || who_maker_bid, "只有在买方未支付状态下才能手动取消交易");
+   rollback_deal(dealtable_, it, DEAL_STATUS_UNPAID_MAN_CANCEL, reason);
+}
+
+//法币支付发点击了已支付
+ACTION otcexchange::paydeal(const symbol_code &pair, name bider, uint64_t deal_id, uint8_t fiat_pay_method, const std::string &fiat_account) //支付
+{
+   require_auth(bider);
 
    auto str_pair = pair.to_string();
    str_pair = lower_str(str_pair);
@@ -510,8 +658,8 @@ ACTION otcexchange::paydeal(const symbol_code &pair, name who, uint64_t deal_id,
    check(it->status == DEAL_STATUS_UNPAID, "只有在未支付状态下才能点击法币支付");
 
    //校验who是买家
-   bool who_taker_bid = (who == it->user) && (it->side == MARKET_ORDER_SIDE_BID);
-   bool who_maker_bid = (who == it->maker_user) && (it->side == MARKET_ORDER_SIDE_ASK);
+   bool who_taker_bid = (bider == it->user) && (it->side == MARKET_ORDER_SIDE_BID);
+   bool who_maker_bid = (bider == it->maker_user) && (it->side == MARKET_ORDER_SIDE_ASK);
    check(who_taker_bid || who_maker_bid, "只有在买方未支付状态下才能点击法币支付");
 
    dealtable_.modify(it, _self, [&](deal &d) {
@@ -523,14 +671,13 @@ ACTION otcexchange::paydeal(const symbol_code &pair, name who, uint64_t deal_id,
       d.source.append("|点击已支付");
    });
    //取消异步事物
-   auto res = cancel_deferred(it->pay_timeout_sender_id);
-   print(res, " tip:1 if transaction was canceled, 0 if transaction was not found");
+   cancel_deftransaction(it->pay_timeout_sender_id, "买方已经付款，取消支付超时自动取消任务");
 }
 
-ACTION otcexchange::selfplaycoin(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason, bool right_now) //放币操作
+ACTION otcexchange::selfplaycoin(const symbol_code &pair, name asker, uint64_t deal_id, const std::string &reason, bool right_now) //放币操作
 {
 
-   require_auth(who);
+   require_auth(asker);
 
    auto str_pair = pair.to_string();
    str_pair = lower_str(str_pair);
@@ -540,8 +687,8 @@ ACTION otcexchange::selfplaycoin(const symbol_code &pair, name who, uint64_t dea
    check(it->status == DEAL_STATUS_PAID_WAIT_PLAYCOIN, "只有买方法币支付了，才能放币");
 
    //校验who是不是卖币者
-   bool who_taker_bid = (who == it->user) && (it->side == MARKET_ORDER_SIDE_ASK);
-   bool who_maker_bid = (who == it->maker_user) && (it->side == MARKET_ORDER_SIDE_BID);
+   bool who_taker_bid = (asker == it->user) && (it->side == MARKET_ORDER_SIDE_ASK);
+   bool who_maker_bid = (asker == it->maker_user) && (it->side == MARKET_ORDER_SIDE_BID);
    check(who_taker_bid || who_maker_bid, "我是卖币者，只能在买方已经支付法币的前提下放币");
 
    dealtable_.modify(it, _self, [&](deal &d) {
@@ -553,7 +700,7 @@ ACTION otcexchange::selfplaycoin(const symbol_code &pair, name who, uint64_t dea
 
    if (right_now)
    {
-      commit_deal(who, dealtable_, it, DEAL_STATUS_SUCCESS_FINISHED, reason);
+      commit_deal(asker, dealtable_, it, DEAL_STATUS_SUCCESS_FINISHED, reason);
    }
    else
    { //延迟事物放币
@@ -567,10 +714,10 @@ ACTION otcexchange::selfplaycoin(const symbol_code &pair, name who, uint64_t dea
       transaction t{};
 
       t.actions.emplace_back(
-          permission_level(who, name{"active"}),
+          permission_level(asker, name{"active"}),
           _self,
           name{"defcmdeal"},
-          std::make_tuple(pair, who, deal_id, DEAL_STATUS_SUCCESS_FINISHED, "卖方主动放币，延迟放币完成"));
+          std::make_tuple(pair, asker, deal_id, DEAL_STATUS_SUCCESS_FINISHED, "卖方主动放币，延迟放币完成"));
 
       auto itr_pair = get_market(pair);
 
@@ -582,10 +729,52 @@ ACTION otcexchange::selfplaycoin(const symbol_code &pair, name who, uint64_t dea
    }
 }
 
-//手动取消：买币方待支付->待支付取消完成
-//超时取消：买币方待支付->超时待支付取消
-//仲裁取消：仲裁中->仲裁取消中->取消完成
-//终审取消：仲裁放币/取消->终审取消中->取消完成
+// 定时任务取消deal，who 默认是taker zz  push action otcexchange defcldeal '["ADXCNY","dabaicai",7,62,"taker是卖币吃单，测试"]' -p dabaicai@active
+ACTION otcexchange::defcldeal(const symbol_code &pair, name cmder, uint64_t deal_id, uint8_t status, const std::string &reason)
+{
+   require_auth(cmder);
+   auto str_pair = pair.to_string();
+   str_pair = lower_str(str_pair);
+   deal_index_t dealtable_(_self, name{str_pair}.value);
+   auto it = dealtable_.require_find(deal_id, "deal id 不存在");
+
+   //检查一下status是否正确
+   bool b1 = it->status == DEAL_STATUS_UNPAID && status == DEAL_STATUS_UNPAID_TIMEOUT_CANCEL;
+   bool b2 = it->status == DEAL_STATUS_PAID_ARBIARATE_CANCEL && status == DEAL_STATUS_ARB_CANCEL_FINISHED;
+   check(b1 || b2, "只有在未支付状态或者仲裁取消中状态下才能取消交易");
+
+   rollback_deal(dealtable_, it, status, reason);
+}
+
+//定时任务提交deal，who是放币者
+ACTION otcexchange::defcmdeal(const symbol_code &pair, name asker, uint64_t deal_id, uint8_t status, const std::string &reason)
+{
+   require_auth(asker);
+
+   auto str_pair = pair.to_string();
+   str_pair = lower_str(str_pair);
+   deal_index_t dealtable_(_self, name{str_pair}.value);
+   auto it = dealtable_.require_find(deal_id, "deal id 不存在");
+
+   bool b1 = it->status == DEAL_STATUS_PAID_PLAYCOIN_ING && status == DEAL_STATUS_SUCCESS_FINISHED;
+   check(b1, "deal卖方放币中->放币完成");
+   commit_deal(asker, dealtable_, it, status, reason);
+}
+
+ACTION otcexchange::cmddefcmdeal(name cmder, const symbol_code &pair, name asker, uint64_t deal_id, uint8_t status, const std::string &reason)
+{
+   require_auth(cmder);
+   auto str_pair = pair.to_string();
+   str_pair = lower_str(str_pair);
+   deal_index_t dealtable_(_self, name{str_pair}.value);
+   auto it = dealtable_.require_find(deal_id, "deal id 不存在");
+
+   //检查一下status是否正确
+   bool b1 = it->status == DEAL_STATUS_PAID_ARBIARATE_PALYCOIN && status == DEAL_STATUS_ARB_PLAYCOIN_FINISHED;
+   check(b1, "deal 仲裁放币中->仲裁放币完成");
+   //仲裁放币才有手续费拿
+   commit_deal(asker, dealtable_, it, status, reason);
+}
 
 void otcexchange::rollback_deal(deal_index_t &dealtable_, deal_iter_t itr_deal, uint8_t status, const std::string &reason)
 {
@@ -633,11 +822,7 @@ void otcexchange::rollback_deal(deal_index_t &dealtable_, deal_iter_t itr_deal, 
    }
 }
 
-void otcexchange::commit_deal(name who,
-                              deal_index_t &dealtable_,
-                              deal_iter_t itr_deal,
-                              uint8_t status,
-                              const std::string &reason)
+void otcexchange::commit_deal(name asker, deal_index_t &dealtable_, deal_iter_t itr_deal, uint8_t status, const std::string &reason)
 {
    auto user = itr_deal->user;
    name from;
@@ -654,7 +839,8 @@ void otcexchange::commit_deal(name who,
       to = itr_deal->user;
       from = itr_deal->maker_user;
    }
-   check(who == from, "放币的人搞错了");
+   check(asker == from, "放币的人搞错了");
+   //校验deal的状态为放币中
 
    std::string str_mk_side = (itr_deal->side == MARKET_ORDER_SIDE_ASK) ? MARKET_ORDER_SIDE_BID_STR : MARKET_ORDER_SIDE_ASK_STR;
    auto adtable = get_adtable(itr_deal->pair, str_mk_side);
@@ -667,8 +853,8 @@ void otcexchange::commit_deal(name who,
 
    //修改deal的状态
    dealtable_.modify(itr_deal, user, [&](deal &d) {
-      d.status = DEAL_STATUS_SUCCESS_FINISHED;
-      d.status_str = DEAL_STATUS_SUCCESS_FINISHED_STR;
+      d.status = status;
+      d.status_str = get_deal_status_str(status);
       d.utime = current_time_point();
       d.source.append(reason);
    });
@@ -685,19 +871,415 @@ void otcexchange::commit_deal(name who,
    });
 }
 
-void otcexchange::get_avail_arbiter(std::set<name> &res, int num, const time_point_sec &ctime)
+// 等待放币/仲裁中 - > 伸诉/仲裁中
+ACTION otcexchange::putappeal(name who,
+                              const std::string &side,
+                              const symbol_code &pair,
+                              uint64_t deal_id,
+                              const std::string &content,
+                              const std::map<uint8_t, std::string> &attachments,
+                              const std::string &source)
+{
+   require_auth(who);
+
+   check((side == MARKET_ORDER_SIDE_ASK_STR || side == MARKET_ORDER_SIDE_BID_STR), ERR_MSG_SIDE);
+   check(!content.empty(), "伸诉内容不能为空");
+   check(!attachments.empty(), "伸诉上传附件不能为空");
+
+   //查看deal_id 是不是存在
+
+   auto str_pair = pair.to_string();
+   str_pair = lower_str(str_pair);
+   deal_index_t dealtable_(_self, name{str_pair}.value);
+
+   auto side_uint = side_to_uint(side);
+   auto itr_deal = dealtable_.require_find(deal_id, "要申诉的deal不存在");
+   //自己主动放币
+   check(itr_deal->status == DEAL_STATUS_PAID_WAIT_PLAYCOIN ||
+             itr_deal->status == DEAL_STATUS_PAID_ARBIARATE_ING,
+         "只有处在已支付待放币状态和仲裁中的deal 才允许买卖双方发起申诉并补充申诉材料");
+
+   check(who == itr_deal->user || who == itr_deal->maker_user, "申诉者不是taker也不是maker");
+
+   if (who == itr_deal->user) //taker上传材料
+   {
+      check(itr_deal->side == side_uint, "who 作为taker，side跟deal里的方向不一样");
+   }
+   else if (who == itr_deal->maker_user)
+   {
+      auto maker_side = (itr_deal->side == MARKET_ORDER_SIDE_ASK) ? MARKET_ORDER_SIDE_BID : MARKET_ORDER_SIDE_ASK;
+      check(maker_side == side_uint, "who 作为maker，side跟deal里的方向不一样");
+   }
+   else
+   {
+      check(false, "申诉者必须是deal的参与者");
+   }
+
+   //先看是否存在这个申诉
+   appeal_index_t appeals(_self, name{str_pair}.value);
+   auto itr_appeal = appeals.find(deal_id);
+   auto now = current_time_point();
+
+   if (itr_appeal == appeals.end())
+   {
+      //要创建一个deal
+      appeals.emplace(_self, [&](appeal &a) {
+         a.id = deal_id;
+         a.arborder_id = deal_id;
+         a.pair = pair;
+         a.initiator_side = side_uint;
+         a.ctime = time_point_sec(now.sec_since_epoch());
+         a.utime = a.ctime;
+
+         if (side_uint == MARKET_ORDER_SIDE_ASK)
+         {
+            a.ask_user = who;
+            a.ask_content = content;
+            a.ask_attachments = attachments;
+         }
+         else
+         {
+            a.bid_user = who;
+            a.bid_content = content;
+            a.bid_attachments = attachments;
+         }
+         a.source.append(source);
+      });
+
+      dealtable_.modify(itr_deal, _self, [&side_uint](deal &d) {
+         d.status = (side_uint == MARKET_ORDER_SIDE_ASK) ? DEAL_STATUS_PAID_APPEAL_ASK : DEAL_STATUS_PAID_APPEAL_BID;
+      });
+
+      //新增一个申诉，这个时候要生成一个仲裁订单，然后这个订单下面又有很多仲裁log，来记录仲裁员的仲裁记录
+
+      std::set<name> arbiters; //分配仲裁员
+
+      auto itr_pair = get_market(pair);
+      get_avail_arbiter(itr_pair->stock.code(), arbiters, GROUP_ARBPEOPLE_NUM, time_point_sec(now.sec_since_epoch()));
+
+      arborder_index_t arbs(_self, name{str_pair}.value); //订单表
+
+      arbs.emplace(_self, [&](arborder &a) {
+         a.id = deal_id;
+         a.ctime = time_point_sec(current_time_point().sec_since_epoch());
+         a.utime = a.ctime;
+         a.pair = pair;
+         a.appeal_id = deal_id;
+         a.deal_id = deal_id;
+         a.initiator_side = side_uint;
+         a.amount = itr_deal->amount;
+         a.price = itr_deal->price;
+         a.quota = itr_deal->quota;
+         a.arbitrate_fee = itr_pair->zero_stock;
+         a.vec_arbiter = arbiters;
+         a.person_num = a.vec_arbiter.size();
+         a.yes_num = 0;
+         a.no_num = 0;
+         a.status = APPEAL_STATUS_CREATED;
+         a.status_str = APPEAL_STATUS_CREATED_STR;
+         a.judge_result = JUDGE_UNKOWN;
+         a.source.append(source);
+      });
+
+      std::map<name, uint64_t> map_person_task;
+
+      for (auto arbiter : arbiters)
+      {
+         arbtask_index_t arbtasks(_self, arbiter.value); //表名，按用户分表，不是按pair分表
+         arbtasks.emplace(_self, [&](arbtask &log) {
+            log.id = arbtasks.available_primary_key();
+            log.ctime = time_point_sec(current_time_point().sec_since_epoch());
+            log.utime = log.ctime;
+            log.pair = pair;
+            log.amount = itr_deal->amount;
+            log.price = itr_deal->price;
+            log.quota = itr_deal->quota;
+            log.arborder_id = deal_id;
+            log.deal_id = deal_id;
+            log.appeal_id = deal_id;
+            log.self_arbit_result = ARBIT_UNKOWN;
+            log.group_arbit_result = ARBIT_UNKOWN;
+            log.labor_fee = itr_pair->zero_stock;
+            log.status = ARBTASK_STATUS_CREATED;
+            log.status_str = ARBTASK_STATUS_CREATED_STR;
+            log.source = source;
+            map_person_task.emplace(arbiter, log.id);
+         });
+      }
+
+      //写回
+      auto itr_arborder = arbs.require_find(deal_id, "找不到仲裁订单表");
+      arbs.modify(itr_arborder, _self, [&map_person_task](arborder &a) {
+         a.map_person_task = map_person_task;
+      });
+   }
+   else //对手房已经上传过申诉材料
+   {
+      check((itr_appeal->initiator_side == MARKET_ORDER_SIDE_ASK && side_uint == MARKET_ORDER_SIDE_BID) ||
+                (itr_appeal->initiator_side == MARKET_ORDER_SIDE_BID && side_uint == MARKET_ORDER_SIDE_ASK),
+            "已经发起过申诉,不允许修改");
+      //说明之前已经有过申诉，这个应该是对手方的申诉
+      appeals.modify(itr_appeal, _self, [&](appeal &a) {
+         a.utime = time_point_sec(current_time_point().sec_since_epoch());
+         if (itr_appeal->initiator_side == MARKET_ORDER_SIDE_ASK)
+         {
+            a.bid_user = who;
+            a.bid_content = content;
+            a.bid_attachments = attachments;
+         }
+         else
+         {
+            a.ask_user = who;
+            a.ask_content = content;
+            a.ask_attachments = attachments;
+         }
+         a.source.append("对手方上传申诉材料|").append(source);
+      });
+
+      if (itr_deal->status != DEAL_STATUS_PAID_ARBIARATE_ING) //仲裁还没有开始，买卖双方都可以上传资料
+      {
+         dealtable_.modify(itr_deal, _self, [&side_uint](deal &d) {
+            d.status = DEAL_STATUS_PAID_APPEAL_ALL;
+         });
+      }
+   }
+}
+ACTION otcexchange::arbdeal(name arbiter, const symbol_code &pair, uint64_t deal_id, uint8_t choice, const std::string &reason)
+{
+   require_auth(arbiter);
+   check(choice == ARBIT_YES || choice == ARBIT_NO, "choice value invalid");
+
+   //仲裁中/仲裁放币/仲裁取消
+   int ret = update_art(arbiter, pair, deal_id, choice, reason);
+
+   auto str_pair = pair.to_string();
+   str_pair = lower_str(str_pair);
+   deal_index_t dealtable_(_self, name{str_pair}.value);
+   auto it = dealtable_.require_find(deal_id, "吃单找不到");
+
+   name asker = it->side == MARKET_ORDER_SIDE_ASK ? it->user : it->maker_user; //找到放币的人
+
+   //发送一个放币的延迟事物
+   if (ret == 1)
+   {
+
+      // ACTION cmddefcmdeal(name cmder, const symbol_code &pair, name asker, uint64_t deal_id, uint8_t status, const std::string &reason);
+      transaction t{};
+      t.actions.emplace_back(
+          permission_level(arbiter, name{"active"}),
+          _self,
+          name{"cmddefcmdeal"},
+          std::make_tuple(arbiter, pair, asker, deal_id, DEAL_STATUS_ARB_PLAYCOIN_FINISHED, "仲裁放币完成"));
+
+      auto itr_pair = get_market(pair);
+      t.delay_sec = itr_pair->def_playcoin_time;
+      t.send(it->arb_sender_id, _self);
+   }
+   else if (ret == 2)
+   {
+      transaction t{};
+      t.actions.emplace_back(
+          permission_level(arbiter, name{"active"}),
+          _self,
+          name{"defcldeal"},
+          std::make_tuple(pair, asker, deal_id, DEAL_STATUS_ARB_CANCEL_FINISHED, "deal因仲裁取消但是用户又没有发起终审而取消"));
+
+      auto itr_pair = get_market(pair);
+      t.delay_sec = itr_pair->def_cancel_time;
+      t.send(it->arb_sender_id, _self);
+   }
+}
+
+//申请终审
+ACTION otcexchange::putjudge(name failer, const symbol_code &pair, uint64_t deal_id, const std::string &reason)
+{
+   require_auth(failer);
+   auto str_pair = pair.to_string();
+   str_pair = lower_str(str_pair);
+   deal_index_t dealtable_(_self, name{str_pair}.value);
+   auto it = dealtable_.require_find(deal_id, "吃单找不到");
+
+   check(failer == it->user || failer == it->maker_user, "复审申请者不是deal参与方");
+
+   //发起终审的前置要求
+
+   bool ing = it->status == DEAL_STATUS_PAID_ARBIARATE_CANCEL || it->status == DEAL_STATUS_PAID_ARBIARATE_PALYCOIN; //在延迟事物还没有结束之前赶紧发起终审
+
+   bool ed = it->status == DEAL_STATUS_ARB_CANCEL_FINISHED || it->status == DEAL_STATUS_ARB_PLAYCOIN_FINISHED; //就算完成了，还可以发起终审
+
+   //bool self = it->status == DEAL_STATUS_PAID_PLAYCOIN_ING || it->status == DEAL_STATUS_SUCCESS_FINISHED; //卖方点击了主动放币，但是他也想发起终审
+
+   check(ing || ed || self, "复审时deal的状态必须是仲裁结果执行中或者执行结束也可以发起终审");
+
+   //终审只能由失败者发起，检验who是不是失败者
+   arborder_index_t arbs(_self, name{str_pair}.value); //订单表
+   auto it_order = arbs.require_find(deal_id, "仲裁order找不到");
+
+   name ask = (it->side == MARKET_ORDER_SIDE_ASK) ? (it->user) : (it->maker_user);
+   name bid = (it->side == MARKET_ORDER_SIDE_BID) ? (it->user) : (it->maker_user);
+
+   name fail_name = (it_order->yes_num > it_order->no_num) ? ask : bid;
+   check(failer == fail_name, "终审只能由失败者发起");
+
+   //取消仲裁者的延迟事物,是否仲裁被执行了
+   bool has_judge_arbcmd = false;
+   if (ing || ed)
+   {
+      has_judge_arbcmd = cancel_deftransaction(it->arb_sender_id, "发起了终审，取消仲裁发布的延迟事物，等待终审结果");
+   }
+
+   /*
+   if (self)
+   {
+      has_judge_arbcmd = cancel_deftransaction(it->self_playcoin_sender_id, "在放币完成之前，交易相关方发起了仲裁，所以取消卖方主动放币延迟事物，等待仲裁完成");
+   }*/
+
+   //卖家已经点击放币了，只能发起复审
+
+   arbs.modify(it_order, _self, [&](arborder &a) {
+      a.utime = CURRENT_SEC;
+      a.has_judge_arbcmd = has_judge_arbcmd;
+      a.status = APPEAL_STATUS_JUDGE_STARTED;
+      a.status_str = APPEAL_STATUS_JUDGE_STARTED_STR;
+   });
+
+   //这里改变deal的状态就算完事了，
+   dealtable_.modify(it, _self, [&](deal &d) {
+      d.utime = time_point_sec{current_time_point().sec_since_epoch()};
+      d.status = DEAL_STATUS_PAID_JUDGING;         //终审中
+      d.status_str = DEAL_STATUS_PAID_JUDGING_STR; //终审中
+   });
+}
+
+ACTION otcexchange::judgedeal(name judger, const symbol_code &pair, uint64_t deal_id, uint8_t choice, const std::string &reason)
+{
+   require_auth(judger);
+   check(choice == JUDGE_NO || choice == JUDGE_YES, "judge choice invalid");
+
+   auto str_pair = pair.to_string();
+   str_pair = lower_str(str_pair);
+   deal_index_t dealtable_(_self, name{str_pair}.value);
+   auto it = dealtable_.require_find(deal_id, "吃单找不到");
+
+   check(it->status == DEAL_STATUS_PAID_JUDGING, "只有处于终审中的deal才能执行终审");
+
+   uint8_t status = choice == JUDGE_NO ? DEAL_STATUS_JUD_CANCEL_FINISHED : DEAL_STATUS_JUD_PLAYCOIN_FINISHED;
+   std::string status_str = choice == JUDGE_NO ? DEAL_STATUS_JUD_CANCEL_FINISHED_STR : DEAL_STATUS_JUD_PLAYCOIN_FINISHED_STR;
+
+   //立即更改状态使用户看的到,deal处于终审放币或者终审放币取消
+   dealtable_.modify(it, _self, [&](deal &d) {
+      d.utime = time_point_sec(current_time_point().sec_since_epoch());
+      d.status = status;
+      d.status_str = status_str;
+      d.source.append(reason);
+   });
+
+   //如果是
+   arborder_index_t arbs(_self, name{str_pair}.value); //订单表
+   auto it_order = arbs.require_find(deal_id, "仲裁order找不到");
+
+   name ask = (it->side == MARKET_ORDER_SIDE_ASK) ? (it->user) : (it->maker_user);
+   name bid = (it->side == MARKET_ORDER_SIDE_BID) ? (it->user) : (it->maker_user);
+   bool isyes = (it_order->yes_num > it_order->no_num);
+
+   name fail_name = isyes ? ask : bid;
+
+   bool has_judge_arbcmd = it_order->has_judge_arbcmd;
+
+   //找到每个仲裁者的情况
+   auto map_picks = it_order->map_person_pick; //决出胜利时的仲裁者的选择
+   auto vec_arbers = it_order->vec_arbiter;    //这么多的仲裁者
+
+   std::set<name> success_arbers;
+   std::set<name> fail_arbers;
+
+   if (isyes) //仲裁放币,现在终审
+   {
+      if (choice == JUDGE_YES) //终审放币
+      {
+         //卖币者恶意终审,但是仲裁放币已经执行完成了，
+         if (it_order->has_judge_arbcmd)
+         {
+            print("卖币者恶意终审,但是仲裁放币已经执行完成了,这时把这个卖币者加入黑名单");
+         }
+         else
+         {
+            print("卖币者恶意终审,但是仲裁放币还没有执行完,这时把这个卖币者加入黑名单，立即执行放币");
+         }
+         print("终审和仲裁的结果是一致的:放币,延迟一段时间自动放币");
+      }
+      else if (choice == JUDGE_NO)
+      {
+         //终审推翻了仲裁，但是仲裁的结果是否执行？
+         if (it_order->has_judge_arbcmd) //仲裁的结果是放币，且放币已经完成，这个时候要补偿卖方
+         {
+            print("卖币者终审成功,但是仲裁放币已经执行完成了,仲裁者要补充这个卖币者");
+         }
+         else //仲裁的结果是放币，且放币没有完成被取消，这个时候要补偿卖方
+         {
+            print("卖币者终审成功,但是仲裁放币还没有执行完,仲裁者要补充这个卖币者");
+         }
+      }
+   }
+   else //仲裁取消
+   {
+      if (choice == JUDGE_YES)
+      {
+         if (it_order->has_judge_arbcmd)
+         {
+            print("买币者终审成功,但是仲裁取消放币已经执行完成了,仲裁者要补充这个买币者");
+         }
+         else
+         {
+            print("买币者终审成功,但是仲裁取消放币还没有执行,仲裁者要补充这个买币者");
+         }
+      }
+      else if (choice == JUDGE_NO)
+      {
+         if (it_order->has_judge_arbcmd)
+         {
+            print("买币者终审失败,但是仲裁取消放币已经执行完成了,买币者要被惩罚");
+         }
+         else
+         {
+            print("买币者终审失败,但是仲裁取消放币还没有执行,买币者要被惩罚");
+         }
+      }
+   }
+
+   auto arb_status = choice == JUDGE_NO ? APPEAL_STATUS_JUDGE_NO : APPEAL_STATUS_JUDGE_YES;
+   auto arb_status_str = choice == JUDGE_NO ? APPEAL_STATUS_JUDGE_NO_STR : APPEAL_STATUS_JUDGE_YES_STR;
+
+   arbs.modify(it_order, _self, [&](arborder &a) {
+      a.judger = judger;
+      a.utime = CURRENT_SEC;
+      a.status = arb_status;
+      a.status_str = arb_status_str;
+      a.judge_result = choice;
+   });
+
+   //判断仲裁的延迟事务是不是被执行了
+}
+
+void otcexchange::get_avail_arbiter(const symbol_code &stock, std::set<name> &res, int num, const time_point_sec &ctime)
 {
    //在线时间优先
+   std::string str_stock = stock.to_string();
+   str_stock = lower_str(str_stock);
+   arbiter_index_t arbiters_(_self, name{str_stock}.value);
+
    auto atime = arbiters_.get_index<"bytime"_n>();
-   auto it = atime.begin();
-   auto end = atime.end();
-   while (it != end && res.size() < num)
+   auto cc = ctime.sec_since_epoch() % DAY_SECONDS;
+   auto beg = atime.lower_bound(0);
+   auto end = atime.upper_bound(cc);
+   while (beg != end && res.size() < num)
    {
-      if (it->online_beg_time <= ctime && it->online_end_time >= ctime)
+
+      if (beg->online_beg_time <= cc && beg->online_end_time >= cc)
       {
-         res.insert(it->account);
+         res.insert(beg->account);
       }
-      ++it;
+      ++beg;
    }
    if (res.size() == num)
    {
@@ -746,54 +1328,6 @@ void otcexchange::get_avail_arbiter(std::set<name> &res, int num, const time_poi
    }
 }
 
-ACTION otcexchange::mancldeal(const symbol_code &pair, name who, uint64_t deal_id, const std::string &reason)
-{
-   require_auth(who);
-   auto str_pair = pair.to_string();
-   str_pair = lower_str(str_pair);
-   deal_index_t dealtable_(_self, name{str_pair}.value);
-   auto it = dealtable_.require_find(deal_id, "deal id 不存在");
-
-   //检查一下status是否正确
-   check(it->status == DEAL_STATUS_UNPAID, "只有在未支付状态下才能手动取消交易");
-   bool who_taker_bid = (who == it->user) && (it->side == MARKET_ORDER_SIDE_BID);
-   bool who_maker_bid = (who == it->maker_user) && (it->side == MARKET_ORDER_SIDE_ASK);
-   check(who_taker_bid || who_maker_bid, "只有在买方未支付状态下才能手动取消交易");
-   rollback_deal(dealtable_, it, DEAL_STATUS_UNPAID_MAN_CANCEL, reason);
-}
-
-// 定时任务取消deal，who 默认是taker
-// zz  push action otcexchange defcldeal '["ADXCNY","dabaicai",7,62,"taker是卖币吃单，测试"]' -p dabaicai@active
-ACTION otcexchange::defcldeal(const symbol_code &pair, name who, uint64_t deal_id, uint8_t status, const std::string &reason)
-{
-   require_auth(who);
-   auto str_pair = pair.to_string();
-   str_pair = lower_str(str_pair);
-   deal_index_t dealtable_(_self, name{str_pair}.value);
-   auto it = dealtable_.require_find(deal_id, "deal id 不存在");
-
-   //检查一下status是否正确
-   check(it->status == DEAL_STATUS_UNPAID || it->status == DEAL_STATUS_PAID_ARBIARATE_CANCEL, "只有在未支付状态或者仲裁取消状态下才能取消交易");
-   check(status == DEAL_STATUS_UNPAID_TIMEOUT_CANCEL || status == DEAL_STATUS_CANCEL_FINISHED, "status value invaid");
-
-   rollback_deal(dealtable_, it, status, reason);
-}
-
-//定时任务提交deal，who是放币者
-ACTION otcexchange::defcmdeal(const symbol_code &pair, name who, uint64_t deal_id, uint8_t status, const std::string &reason)
-{
-   require_auth(who);
-
-   auto str_pair = pair.to_string();
-   str_pair = lower_str(str_pair);
-   deal_index_t dealtable_(_self, name{str_pair}.value);
-   auto it = dealtable_.require_find(deal_id, "deal id 不存在");
-
-   //检查一下status是否正确
-   check(it->status == DEAL_STATUS_PAID_PLAYCOIN_ING, "放币中才能放币");
-   commit_deal(who, dealtable_, it, status, reason);
-}
-
 int otcexchange::update_art(name arbiter, const symbol_code &pair, uint64_t deal_id, uint8_t choice, const std::string &reason)
 {
 
@@ -807,7 +1341,7 @@ int otcexchange::update_art(name arbiter, const symbol_code &pair, uint64_t deal
              DEAL_STATUS_PAID_APPEAL_BID ||
              DEAL_STATUS_PAID_APPEAL_ALL ||
              DEAL_STATUS_PAID_ARBIARATE_ING,
-         "deal必须处于申诉状态和仲裁中才能发起仲裁");
+         "deal必须处于申诉状态和仲裁中才能发起仲裁,仲裁结果已出，终止仲裁");
 
    if (it->status != DEAL_STATUS_PAID_ARBIARATE_ING)
    {
@@ -816,363 +1350,142 @@ int otcexchange::update_art(name arbiter, const symbol_code &pair, uint64_t deal
       });
    }
 
+   arborder_index_t arbs(_self, name{str_pair}.value); //订单表
+   auto it_order = arbs.require_find(deal_id, "仲裁order找不到");
+
+   check(it_order->map_person_task.find(arbiter) != it_order->map_person_task.end(), "该仲裁员还没有分配仲裁任务");
+
+   auto itt = it_order->map_person_task.find(arbiter);
+   auto taskid = itt->second;
+
    arbtask_index_t arbtasks(_self, arbiter.value); //表名，按用户分表，不是按pair分表
-   auto it_task = arbtasks.require_find(deal_id, "仲裁task找不到");
-   arbtasks.modify(it_task, _self, [&](arbtask &t) {
-      t.utime = time_point_sec(current_time_point().sec_since_epoch());
-      t.self_arbit = choice; //我自己说NO
-   });
+   auto it_task = arbtasks.require_find(taskid, "该仲裁员仲裁task找不到");
 
-   arbadorder_index_t arbs(_self, name{str_pair}.value); //订单表
-   auto it_order = arbs.require_find(it_task->arborder_id, "仲裁order找不到");
-   auto now = time_point_sec(current_time_point().sec_since_epoch());
+   //这个结果
 
-   arbs.modify(it_order, _self, [&](arborder &o) {
-      o.utime = now;
+   auto yes_num = it_order->yes_num;
+   auto no_num = it_order->no_num;
+   if (choice == ARBIT_YES)
+   {
+      yes_num++;
+   }
+   else
+   {
+      no_num++;
+   }
 
-      if (choice == ARBIT_YES)
-      {
-         o.yes_num++;
-      }
-      else if (choice == ARBIT_NO)
-      {
-         o.no_num++;
-      }
-      o.map_person_pick[arbiter] = choice;
-   });
-
-   it_order = arbs.require_find(it_task->arborder_id, "仲裁order找不到");
-
-   auto yesorno = it_order->yes_num > it_order->no_num ? true : false;
+   auto yesorno = yes_num > no_num ? true : false;
    if (yesorno)
    {
-      if (it_order->yes_num >= it_order->vec_arbiter.size() / 2 + 1)
-      { //仲裁结果出来了，yes
-         dealtable_.modify(it, _self, [&](deal &d) {
-            d.status = DEAL_STATUS_PAID_ARBIARATE_PALYCOIN; //立即更改状态使用户看的到，仲裁放币
-            d.arb_sender_id = now.sec_since_epoch();
-         });
-
-         it_task = arbtasks.require_find(deal_id, "仲裁task找不到");
-         arbtasks.modify(it_task, _self, [&](arbtask &t) {
-            t.final_arbit = ARBIT_YES; //我自己说NO
-         });
-
+      if (yes_num >= it_order->vec_arbiter.size() / 2 + 1)
+      {
          ret = 1;
       }
    }
    else
    {
-      if (it_order->no_num >= it_order->vec_arbiter.size() / 2 + 1)
-      { //仲裁结果出来了，yes
-         dealtable_.modify(it, _self, [&](deal &d) {
-            d.status = DEAL_STATUS_PAID_ARBIARATE_CANCEL; //立即更改状态使用户看的到，仲裁放币
-            d.arb_sender_id = now.sec_since_epoch();
-         });
-         it_task = arbtasks.require_find(deal_id, "仲裁task找不到");
-         arbtasks.modify(it_task, _self, [&](arbtask &t) {
-            t.final_arbit = ARBIT_NO; //我自己说NO
-         });
+      if (no_num >= it_order->vec_arbiter.size() / 2 + 1)
+      {
          ret = 2;
       }
    }
-   return ret;
-}
 
-ACTION otcexchange::arbdeal(name arbiter, const symbol_code &pair, uint64_t deal_id, uint8_t choice, const std::string &reason)
-{
-   require_auth(arbiter);
-   check(choice == ARBIT_YES || choice == ARBIT_NO, "choice value invalid");
-   int ret = update_art(arbiter, pair, deal_id, choice, reason);
-   auto str_pair = pair.to_string();
-   str_pair = lower_str(str_pair);
-   deal_index_t dealtable_(_self, name{str_pair}.value);
-   auto it = dealtable_.require_find(deal_id, "吃单找不到");
-   name who = it->side == MARKET_ORDER_SIDE_ASK ? it->user : it->maker_user;
+   auto now = time_point_sec(current_time_point().sec_since_epoch());
+   it = dealtable_.require_find(deal_id, "吃单找不到");
 
-   if (ret == 1)
+   auto ts = choice == ARBIT_NO ? ARBTASK_STATUS_NO : ARBTASK_STATUS_YES;
+   auto ts_str = choice == ARBIT_NO ? ARBTASK_STATUS_NO_STR : ARBTASK_STATUS_YES_STR;
+   if (ret == 0)
    {
-      transaction t{};
-      t.actions.emplace_back(
-          permission_level(_self, name{"active"}),
-          _self,
-          name{"defcmdeal"},
-          std::make_tuple(pair, who, deal_id, DEAL_STATUS_SUCCESS_FINISHED, "仲裁放币完成"));
+      arbtasks.modify(it_task, _self, [&](arbtask &t) {
+         t.utime = now;
+         t.self_arbit_result = choice;
+         t.status = ts;
+         t.status_str = ts_str;
+      });
 
-      auto itr_pair = get_market(pair);
-      t.delay_sec = itr_pair->def_playcoin_time;
-      t.send(it->arb_sender_id, _self);
+      arbs.modify(it_order, _self, [&](arborder &o) {
+         o.utime = now;
+         if (choice == ARBIT_YES)
+         {
+            o.yes_num++;
+         }
+         else if (choice == ARBIT_NO)
+         {
+            o.no_num++;
+         }
+         o.map_person_pick[arbiter] = choice;
+         o.status = APPEAL_STATUS_ARB_ING; //仲裁进行中
+         o.status_str = APPEAL_STATUS_ARB_ING_STR;
+      });
+   }
+   else if (ret == 1)
+   {
+
+      arbtasks.modify(it_task, _self, [&](arbtask &t) {
+         t.utime = now;
+         t.self_arbit_result = choice; //我自己说NO
+         t.status = ts;
+         t.status_str = ts_str;
+         t.group_arbit_result = ARBIT_YES;
+      });
+
+      arbs.modify(it_order, _self, [&](arborder &o) {
+         o.utime = now;
+         if (choice == ARBIT_YES)
+         {
+            o.yes_num++;
+         }
+         else if (choice == ARBIT_NO)
+         {
+            o.no_num++;
+         }
+         o.map_person_pick[arbiter] = choice;
+         o.status = APPEAL_STATUS_ARB_YES;
+         o.status_str = APPEAL_STATUS_ARB_YES_STR;
+      });
+
+      it = dealtable_.require_find(deal_id, "吃单找不到");
+      dealtable_.modify(it, _self, [&](deal &d) {
+         d.status = DEAL_STATUS_PAID_ARBIARATE_PALYCOIN; //立即更改状态使用户看的到，仲裁放币
+         d.status_str = DEAL_STATUS_PAID_ARBIARATE_PALYCOIN_STR;
+         d.arb_sender_id = now.sec_since_epoch();
+      });
    }
    else if (ret == 2)
    {
-      transaction t{};
-      t.actions.emplace_back(
-          permission_level(_self, name{"active"}),
-          _self,
-          name{"defcldeal"},
-          std::make_tuple(pair, who, deal_id, DEAL_STATUS_CANCEL_FINISHED, "deal因仲裁取消但是用户又没有发起终审而取消"));
-
-      auto itr_pair = get_market(pair);
-      t.delay_sec = itr_pair->def_cancel_time;
-      t.send(it->arb_sender_id, _self);
-   }
-}
-
-//申请终审
-ACTION otcexchange::putjudge(name who,
-                             const symbol_code &pair,
-                             uint64_t deal_id,
-                             const std::string &reason)
-{
-   require_auth(who);
-   auto str_pair = pair.to_string();
-   str_pair = lower_str(str_pair);
-   deal_index_t dealtable_(_self, name{str_pair}.value);
-   auto it = dealtable_.require_find(deal_id, "吃单找不到");
-   check(who == it->user || who == it->maker_user, "复审申请者不是deal参与方");
-   bool ing = it->status == DEAL_STATUS_PAID_ARBIARATE_CANCEL || it->status == DEAL_STATUS_PAID_ARBIARATE_PALYCOIN;
-   bool ed = it->status == DEAL_STATUS_CANCEL_FINISHED || it->status == DEAL_STATUS_SUCCESS_FINISHED;
-   check(ing || ed, "复审时deal的状态必须是仲裁结果执行中或者执行结束");
-   //终审只能由失败者发起，检验who是不是失败者
-   arbadorder_index_t arbs(_self, name{str_pair}.value); //订单表
-   auto it_order = arbs.require_find(deal_id, "仲裁order找不到");
-   name ask = (it->side == MARKET_ORDER_SIDE_ASK) ? (it->user) : (it->maker_user);
-   name bid = (it->side == MARKET_ORDER_SIDE_BID) ? (it->user) : (it->maker_user);
-
-   name fail_name = (it_order->yes_num > it_order->no_num) ? ask : bid;
-   check(who == fail_name, "终审只能由失败者发起");
-
-   //这里改变deal的状态就算完事了。
-   dealtable_.modify(it, _self, [&](deal &d) {
-      d.status = DEAL_STATUS_PAID_JUDGING; //终审中
-   });
-}
-
-ACTION otcexchange::judgedeal(name judger, const symbol_code &pair, uint64_t deal_id, uint8_t choice, const std::string &reason)
-{
-   require_auth(judger);
-   check(choice == JUDGE_NO || choice == JUDGE_YES, "judge choice invalid");
-
-   auto str_pair = pair.to_string();
-   str_pair = lower_str(str_pair);
-   deal_index_t dealtable_(_self, name{str_pair}.value);
-
-   auto it = dealtable_.require_find(deal_id, "吃单找不到");
-   check(it->status == DEAL_STATUS_PAID_JUDGING, "只有处于终审中的deal才能执行终审");
-   uint8_t status = choice == JUDGE_NO ? DEAL_STATUS_PAID_ARBIARATE_CANCEL : DEAL_STATUS_PAID_ARBIARATE_PALYCOIN;
-   dealtable_.modify(it, _self, [&](deal &d) {
-      d.utime = time_point_sec(current_time_point().sec_since_epoch());
-      d.status = DEAL_STATUS_PAID_JUDGE_CANCEL; //立即更改状态使用户看的到
-      d.source.append(reason);                  //你的订单已经被仲裁取消，XX后生效，如有异议，请发起终审
-   });
-   //如果是
-   arbadorder_index_t arbs(_self, name{str_pair}.value); //订单表
-   auto it_order = arbs.require_find(deal_id, "仲裁order找不到");
-
-   name ask = (it->side == MARKET_ORDER_SIDE_ASK) ? (it->user) : (it->maker_user);
-   name bid = (it->side == MARKET_ORDER_SIDE_BID) ? (it->user) : (it->maker_user);
-   bool isyes = (it_order->yes_num > it_order->no_num);
-
-   name fail_name = isyes ? ask : bid;
-
-   if (isyes) //仲裁放币
-   {
-      if (choice == JUDGE_YES) //终审放币
-      {
-         print("终审和仲裁的结果是一致的:放币");
-      }
-      else if (choice == JUDGE_NO)
-      {
-         //这里需要根据放币是否完成来惩罚仲裁者;
-         //仲裁放币，终审者取消，有可能已经把币打过去了
-         int rescode = cancel_deferred(it->arb_sender_id);
-         if (rescode == 1)
-         {
-            print("仲裁放币延迟事物取消ok，卖方没有放币，把仲裁者的10%给卖方");
-            //币还没有从卖方打给买方：卖方实际上没有收到法币，这个时候要补偿卖方
-         }
-         else
-         {
-            print("仲裁放币延迟事物取消失败，卖方已经放币，把仲裁者的50%给卖方");
-         }
-      }
-   }
-   else
-   {
-      if (choice == JUDGE_NO) //终审取消放币
-      {
-         print("终审和仲裁的结果是一致的:取消放币");
-      }
-      else if (choice == JUDGE_YES) //
-      {
-         //仲裁取消，终审者放币，有可能deal已经取消
-         int rescode = cancel_deferred(it->arb_sender_id);
-         if (rescode == 1)
-         {
-            print("仲裁取消放币延迟事物取消ok，应该给买方放币，");
-         }
-         else
-         {
-            print("取消放币已经完成，没有给买方放币，把仲裁者的50%给买方，");
-         }
-      }
-      //rollback_deal(who, dealtable_, it, DEAL_STATUS_SUCCESS_FINISHED, reason); //把订单状态改为取消完成
-   }
-
-   //判断仲裁的延迟事务是不是被执行了
-}
-
-ACTION otcexchange::putappeal(name who,
-                              const std::string &side,
-                              const symbol_code &pair,
-                              uint64_t deal_id,
-                              const std::string &content,
-                              const std::vector<std::string> attachments,
-                              const std::string &source)
-{
-   require_auth(who);
-
-   check((side == MARKET_ORDER_SIDE_ASK_STR || side == MARKET_ORDER_SIDE_BID_STR), ERR_MSG_SIDE);
-   check(!content.empty(), "伸诉内容不能为空");
-   check(!attachments.empty(), "伸诉上传附件不能为空");
-
-   //查看deal_id 是不是存在
-
-   auto str_pair = pair.to_string();
-   str_pair = lower_str(str_pair);
-   deal_index_t dealtable_(_self, name{str_pair}.value);
-
-   auto side_uint = side_to_uint(side);
-   auto itr_deal = dealtable_.require_find(deal_id, "要申诉的deal不存在");
-   check(itr_deal->status == DEAL_STATUS_PAID_WAIT_PLAYCOIN ||
-             itr_deal->status == DEAL_STATUS_PAID_ARBIARATE_ING,
-         "只有处在已支付待放币状态和仲裁中的deal 才允许买卖双方发起申诉");
-
-   if (who == itr_deal->user) //taker上传材料
-   {
-      check(itr_deal->side == side_uint, "who 作为taker，side 出错");
-   }
-   else if (who == itr_deal->maker_user)
-   {
-      auto maker_side = (itr_deal->side == MARKET_ORDER_SIDE_ASK) ? MARKET_ORDER_SIDE_BID : MARKET_ORDER_SIDE_ASK;
-      check(maker_side == side_uint, "who 作为maker，side 出错");
-   }
-   else
-   {
-      check(false, "申诉者必须是deal的参与者");
-   }
-
-   //先看是否存在这个申诉
-   appeal_index_t appeals(_self, name{str_pair}.value);
-   auto itr_appeal = appeals.find(deal_id);
-   auto now = current_time_point();
-
-   if (itr_appeal == appeals.end())
-   {
-      //要创建一个deal
-      appeals.emplace(_self, [&](appeal &a) {
-         a.id = deal_id;
-         a.pair = pair;
-         a.initiator_side = side_uint;
-         a.ctime = time_point_sec(now.sec_since_epoch());
-         a.utime = a.ctime;
-
-         if (side_uint == MARKET_ORDER_SIDE_ASK)
-         {
-            a.ask_user = who;
-            a.ask_content = content;
-            a.ask_attachments = attachments;
-         }
-         else
-         {
-            a.bid_user = who;
-            a.bid_content = content;
-            a.bid_attachments = attachments;
-         }
-         a.source.append(source);
-      });
-      dealtable_.modify(itr_deal, _self, [&side_uint](deal &d) {
-         d.status = (side_uint == MARKET_ORDER_SIDE_ASK) ? DEAL_STATUS_PAID_APPEAL_ASK : DEAL_STATUS_PAID_APPEAL_BID;
+      //仲裁结果还没有出来
+      arbtasks.modify(it_task, _self, [&](arbtask &t) {
+         t.utime = now;
+         t.self_arbit_result = choice; //我自己说NO
+         t.status = ts;
+         t.status_str = ts_str;
+         t.group_arbit_result = ARBIT_NO;
       });
 
-      //新增一个申诉，这个时候要生成一个仲裁订单，然后这个订单下面又有很多仲裁log，来记录仲裁员的仲裁记录
-
-      std::set<name> arbiters; //分配仲裁员
-
-      auto itr_pair = get_market(pair);
-      get_avail_arbiter(arbiters, GROUP_ARBPEOPLE_NUM, time_point_sec(now.sec_since_epoch()));
-
-      arbadorder_index_t arbs(_self, name{str_pair}.value); //订单表
-
-      arbs.emplace(_self, [&](arborder &a) {
-         a.id = deal_id;
-         a.ctime = time_point_sec(current_time_point().sec_since_epoch());
-         a.utime = a.ctime;
-         a.pair = pair;
-         a.appeal_id = deal_id;
-         a.deal_id = deal_id;
-         a.initiator_side = side_uint;
-         a.amount = itr_deal->amount;
-         a.price = itr_deal->price;
-         a.quota = itr_deal->quota;
-         a.arbitrate_fee = itr_pair->zero_stock;
-         a.vec_arbiter = arbiters;
-         a.person_num = a.vec_arbiter.size();
-         a.yes_num = 0;
-         a.no_num = 0;
-         a.status = ARBDEAL_STATUS_CREATED;
-         a.source.append(source);
-      });
-
-      for (auto arbiter : arbiters)
-      {
-         arbtask_index_t arbtasks(_self, arbiter.value); //表名，按用户分表，不是按pair分表
-         arbtasks.emplace(_self, [&](arbtask &log) {
-            log.id = arbtasks.available_primary_key();
-            log.ctime = time_point_sec(current_time_point().sec_since_epoch());
-            log.utime = log.ctime;
-            log.pair = pair;
-            log.arborder_id = deal_id;
-            log.deal_id = deal_id;
-            log.appeal_id = deal_id;
-            log.self_arbit = ARBIT_UNKOWN;
-            log.final_arbit = ARBIT_UNKOWN;
-            log.labor_fee = itr_pair->zero_stock;
-            log.status = ARBDEAL_STATUS_CREATED;
-            log.source = source;
-         });
-      }
-   }
-   else //对手房已经上传过申诉材料
-   {
-      check((itr_appeal->initiator_side == MARKET_ORDER_SIDE_ASK && side_uint == MARKET_ORDER_SIDE_BID) ||
-                (itr_appeal->initiator_side == MARKET_ORDER_SIDE_BID && side_uint == MARKET_ORDER_SIDE_ASK),
-            "已经发起过申诉");
-      //说明之前已经有过申诉，这个应该是对手方的申诉
-      appeals.modify(itr_appeal, _self, [&](appeal &a) {
-         a.utime = time_point_sec(current_time_point().sec_since_epoch());
-         if (itr_appeal->initiator_side == MARKET_ORDER_SIDE_ASK)
+      arbs.modify(it_order, _self, [&](arborder &o) {
+         o.utime = now;
+         if (choice == ARBIT_YES)
          {
-            a.bid_user = who;
-            a.bid_content = content;
-            a.bid_attachments = attachments;
+            o.yes_num++;
          }
-         else
+         else if (choice == ARBIT_NO)
          {
-            a.ask_user = who;
-            a.ask_content = content;
-            a.ask_attachments = attachments;
+            o.no_num++;
          }
-         a.source.append("对手方上传申诉材料|").append(source);
+         o.map_person_pick[arbiter] = choice;
+         o.status = APPEAL_STATUS_ARB_NO;
+         o.status_str = APPEAL_STATUS_ARB_NO_STR;
       });
-
-      if (itr_deal->status != DEAL_STATUS_PAID_ARBIARATE_ING)
-      {
-         dealtable_.modify(itr_deal, _self, [&side_uint](deal &d) {
-            d.status = DEAL_STATUS_PAID_APPEAL_ALL;
-         });
-      }
+      it = dealtable_.require_find(deal_id, "吃单找不到");
+      dealtable_.modify(it, _self, [&](deal &d) {
+         d.status = DEAL_STATUS_PAID_ARBIARATE_CANCEL;         //立即更改状态使用户看的到，仲裁放币
+         d.status_str = DEAL_STATUS_PAID_ARBIARATE_CANCEL_STR; //立即更改状态使用户看的到，仲裁放币
+         d.arb_sender_id = now.sec_since_epoch();
+      });
    }
+
+   return ret;
 }
 
 //自己放币：已付款待支付中->放币中->放币完成
