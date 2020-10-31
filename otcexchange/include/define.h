@@ -16,7 +16,8 @@
 #define ARBUSER_STATUS_REGED 1   //已经注册
 #define ARBUSER_STATUS_UNREGED 2 //解除注册
 
-#define GROUP_ARBPEOPLE_NUM 5
+#define GROUP_ARBPEOPLE_NUM 3
+#define GROUP_OVER_NUM 3
 
 //生产环境外联合约
 #define PRO_TOKEN_CONTRACT_NAME "otcsystem"
@@ -137,6 +138,9 @@
 
 #define ARBTASK_STATUS_SETTLE_MINUS 6
 #define ARBTASK_STATUS_SETTLE_MINUS_STR "恶意仲裁，惩罚:"
+
+#define ARBTASK_STATUS_CANCELED 7
+#define ARBTASK_STATUS_CANCELED_STR "系统取消，已经提前达成共识了"
 
 #define MARKET_STATUS_ON_STR "allow trade"      //允许交易
 #define MARKET_STATUS_OFF_STR "not allow trade" //不允许交易

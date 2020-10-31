@@ -32,6 +32,30 @@ EOS6JLFKjgXaVWjJihTufhTxB8PF6hm3e4usmJhSXP1pfWcQWapX9  \
 
 
 
+zz system newaccount eosio --transfer a1  \
+EOS6JLFKjgXaVWjJihTufhTxB8PF6hm3e4usmJhSXP1pfWcQWapX9  \
+EOS6JLFKjgXaVWjJihTufhTxB8PF6hm3e4usmJhSXP1pfWcQWapX9  \
+--stake-net "10000.0000 EOS"  \
+--stake-cpu "10000.0000 EOS"  \
+--buy-ram-kbytes 8192
+
+
+zz system newaccount eosio --transfer a2  \
+EOS6JLFKjgXaVWjJihTufhTxB8PF6hm3e4usmJhSXP1pfWcQWapX9  \
+EOS6JLFKjgXaVWjJihTufhTxB8PF6hm3e4usmJhSXP1pfWcQWapX9  \
+--stake-net "10000.0000 EOS"  \
+--stake-cpu "10000.0000 EOS"  \
+--buy-ram-kbytes 8192
+
+zz system newaccount eosio --transfer a3  \
+EOS6JLFKjgXaVWjJihTufhTxB8PF6hm3e4usmJhSXP1pfWcQWapX9  \
+EOS6JLFKjgXaVWjJihTufhTxB8PF6hm3e4usmJhSXP1pfWcQWapX9  \
+--stake-net "10000.0000 EOS"  \
+--stake-cpu "10000.0000 EOS"  \
+--buy-ram-kbytes 8192
+
+
+
 
 #转账
 
@@ -44,9 +68,13 @@ zz get table adxio.token zhouhao account;
 
 
 #3.给新帐号转帐
-zz push action adxio.token transfer '["adxio.token", "zhouhao","1000.0000 ADX","test"]' -p adxio.token
-zz push action adxio.token transfer '["adxio.token", "dabaicai","1000.0000 ADX","test"]' -p adxio.token
+zz push action adxio.token transfer '["adxio.token", "zhouhao","100000.0000 ADX","test"]' -p adxio.token
+zz push action adxio.token transfer '["adxio.token", "dabaicai","100000.0000 ADX","test"]' -p adxio.token
 
+
+zz push action adxio.token transfer '["adxio.token", "a1","10000.0000 ADX","test"]' -p adxio.token
+zz push action adxio.token transfer '["adxio.token", "a2","10000.0000 ADX","test"]' -p adxio.token
+zz push action adxio.token transfer '["adxio.token", "a3","10000.0000 ADX","test"]' -p adxio.token
 
 zz push action eosio.token transfer '["eosio.token", "dabaicai","1000.0000 EOS","test"]' -p eosio.token
 
@@ -97,8 +125,13 @@ zz  push action otcexchange rmmarket  '["ADXCNY"]' -p otcexchange
 
 
 zz  get table  otcexchange otcexchange markets --key-type i64 --index 3 -L "4,ADX" -U "4,ADX";
+zz  get table  otcexchange adxcny deals --key-type i64 --index 2 -L "huabinliang1" -U "huabinliang1";
 
 zz  get table  otcexchange otcexchange markets --key-type i64 --index 2  -U 1
+
+
+
+
 
 
    ACTION putadorder(const symbol_code &pair,
@@ -210,3 +243,88 @@ zz get table adxio.token dabaicai accounts
 
   zz  push action otcexchange defcldeal '["ADXCNY","zhouhao",7,62,"taker是卖币吃单，测试"]' -p zhouhao@active 
 
+
+
+
+
+  zz  push action otcexchange newarbst '["ADX",["3000.0000 ADX","2000.0000 ADX","1000.0000 ADX","4000.0000 ADX","6000.0000 ADX","5000.0000 ADX","7000.0000 ADX","8000.0000 ADX","9000.0000 ADX","10000.0000 ADX"]]' -p otcexchange@active 
+  zz  push action otcexchange rmarbst '["ADX"]' -p otcexchange@active 
+  zz  push action otcexchange rmarbsts '[]' -p otcexchange@active 
+
+  zz get table otcexchange otcexchange arbsts
+
+  #注册成为仲裁员
+#ACTION otcexchange::regarbiter(name arbitername, const symbol_code &stock, asset mortgage, uint32_t online_begin, uint32_t online_end)
+  zz  push action otcexchange regarbiter '["a1","ADX","1000.0000 ADX",60,82800,"656717520@qq.com","1234"]' -p a1@active 
+  zz  push action otcexchange regarbiter '["a2","ADX","2000.0000 ADX",120,82800,"656717520@qq.com","1234"]' -p a2@active 
+  zz  push action otcexchange regarbiter '["a3","ADX","3000.0000 ADX",180,82800,"656717520@qq.com","1234"]' -p a3@active 
+  zz  push action otcexchange unregarbiter '["a3","ADX","XXXX"]' -p a3@active 
+  zz get table otcexchange adx  arbiters
+  zz get table otcexchange a2  arbers
+  zz get table otcexchange a3  arbers
+  zz push action otcexchange rmarbiter '["a1]' -p otcexchange
+
+   zz get table otcexchange adx  arbitrators
+ 
+  #ACTION otcexchange::unregarbiter(name arbitername, const symbol_code &stock, const std::string &reason)
+
+
+
+ACTION putappeal(name who,
+                    const std::string &side,
+                    const symbol_code &pair,
+                    uint64_t deal_id,
+                    const std::map<std::string, std::string> &attachments,
+                    const std::vector<std::string> &vec_img,
+                    const std::vector<std::string> &vec_video,
+                    const std::string &source);
+
+ zz  push action otcexchange puttkorder '["ADXCNY","ask","dabaicai","50.00 CNY","10.0000 ADX",1,[1,2],[1],"仲裁1"]' -p dabaicai@active 
+ zz  push action otcexchange paydeal '["ADXCNY","zhouhao",7,1,"银行卡付钱"]' -p zhouhao@active 
+
+ zz get table otcexchange  adxcny appeals
+
+
+
+
+
+#deal id =2 dabaicai side:1  phone email reason desc
+
+
+
+  zz  push action otcexchange  putappeal '["zhouhao","bid","ADXCNY",7,"18588250437","656717520@qq.com","原因1","描述1",["http://zhongyingying.qicp.io:28080/ipfs/QmcnSL6oApFVYDb4wmUD5XLxxBzFW2H51f2Sdu3QjcFZqA"],["url"],"买家发起申诉"]' -p zhouhao
+
+  zz get table otcexchange  adxcny arborders
+  zz get table otcexchange  adxcny appeals
+  zz get table otcexchange  adxcny deals
+   zz get table otcexchange  a3 arbtasks
+   zz get table otcexchange otcexchange markets
+
+  
+#ACTION otcexchange::arbdeal(name arbiter, const symbol_code &pair, uint64_t deal_id, uint8_t choice, const std::string &reason)
+
+
+ zz  push action otcexchange  arbdeal '["a1","ADXCNY",7,1,"买家已付款，应该放币"]' -p a1
+ zz  push action otcexchange  arbdeal '["a2","ADXCNY",7,1,"买家已付款，应该放币"]' -p a2
+ zz  push action otcexchange  arbdeal '["a3","ADXCNY",7,1,"买家已付款，应该放币"]' -p a3
+ zz  push action otcexchange putjudge '["dabaicai","ADXCNY",7,"卖家上诉"]' -p dabaicai
+ 
+    ACTION putjudge(name failer,
+                   const symbol_code &pair,
+                   uint64_t deal_id,
+                   const std::string &reason);
+ACTION judgedeal(name judger, const symbol_code &pair, uint64_t deal_id, uint8_t choice, const std::string &reason);
+
+ zz  push action otcexchange judgedeal '["otcexchange","ADXCNY",7,2,"终审卖方不放币，是恶意仲裁"]' -p otcexchange
+
+
+
+zz  get table  otcexchange adxcny deals --key-type i64 --index 1 -L 7 -U 7;
+
+
+zz  get table  otcexchange a1 arbtasks --key-type i64 --index 2 -L 1 -U 1;
+zz  get table  otcexchange a2 arbtasks --key-type i64 --index 2 -L 1 -U 1;
+zz  get table  otcexchange a3 arbtasks --key-type i64 --index 2 -L 1 -U 1;
+zz  get table  otcexchange a2 arbtasks --key-type i64 --index 2  -U 1
+
+  zz  push action otcexchange regarbiter '["huanghaoran3","ADX","3000.0000 ADX",60,82800,"264@qq.com","1234"]' -p huanghaoran3@active 

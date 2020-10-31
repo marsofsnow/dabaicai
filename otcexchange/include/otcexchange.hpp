@@ -38,11 +38,16 @@ public:
    ACTION newarbst(const symbol_code &stock, const std::vector<asset> &vec_level);
    ACTION rmarbst(const symbol_code &stock);
    ACTION rmarbsts();
+   ACTION rmdhs(name who);
 
    //申请成为仲裁员
-   ACTION regarbiter(name arbitername, const symbol_code &stock, asset mortgage, uint8_t today_begin, uint8_t today_end);
+   ACTION regarbiter(name arbitername, const symbol_code &stock, asset mortgage, uint32_t online_begin, uint32_t online_end, const std::string &email, const std::string &verify_code);
    //解除仲裁员
    ACTION unregarbiter(name arbitername, const symbol_code &stock, const std::string &reason);
+   //删除中裁员
+   ACTION rmarbiters(const symbol_code &stock);
+   //删除仲裁记录
+   ACTION rmarbtasks(name arbitername);
 
    //using hi_action = action_wrapper<"hi"_n, &otcexchange::hi>;
    //USING_ACTION(otcexchange, hi);
@@ -101,13 +106,14 @@ public:
                     const std::string &side,
                     const symbol_code &pair,
                     uint64_t deal_id,
-                    const std::string &content,
-                    const std::map<uint8_t, std::string> &attachments,
+                    const std::string &phone,
+                    const std::string &email,
+                    const std::string &reason,
+                    const std::string &desc,
+                    const std::vector<std::string> &vec_img,
+                    const std::vector<std::string> &vec_video,
                     const std::string &source);
-   ACTION putjudge(name failer,
-                   const symbol_code &pair,
-                   uint64_t deal_id,
-                   const std::string &reason);
+   ACTION putjudge(name failer, const symbol_code &pair, uint64_t deal_id, const std::string &reason);
 
    ACTION defcldeal(const symbol_code &pair, name cmder, uint64_t deal_id, uint8_t status, const std::string &reason);
 
@@ -299,7 +305,7 @@ private:
    using log_index_t = multi_index<"log"_n, logitem>;
    log_index_t log_;
 
-   //仲裁池，全局
+   //仲裁池，scope是合约，主键是代币
    TABLE arbpool
    {
       symbol_code stock;   //代币作为主键
@@ -315,7 +321,7 @@ private:
    using arbpool_index_t = multi_index<"arbpools"_n, arbpool>;
    arbpool_index_t arbpools_;
 
-   //仲裁员的相关配置
+   //仲裁员的相关配置，scope是合约，主键是代币
    TABLE arbst
    {
       symbol_code stock;            //主键
@@ -346,12 +352,11 @@ private:
    };
    using user_index_t = multi_index<"users"_n, user>;
 
-   //scope必须是stock，stock_code是大写，要转成小写，主键是用户
+   //scope 是代币，主键是用户
    TABLE arbiter
    {
-      name account;      //EOS账户，仲裁者 主键
-      symbol_code stock; //
-
+      symbol_code stock;   //
+      name account;        //EOS账户，仲裁者 主键
       asset balance;       //质押还剩下的代币余额
       asset mortgage;      //总的质押总额
       asset total_revenue; //个人仲裁总收入
@@ -361,25 +366,63 @@ private:
       time_point_sec ctime;
       time_point_sec utime;
       time_point_sec last_arb_time; //最近一次仲裁时间
-      uint32_t total_num;           //仲裁总场次
+      uint32_t total_num;           //仲裁总场次，每次要更新
       uint32_t win_num;             //仲裁胜利场次
       uint32_t today_win_num;       //今天仲裁胜利场次
-      uint8_t is_arbiting;          //是否正在仲裁中
+      uint8_t is_work;              //是否正在仲裁中
       uint32_t online_beg_time;     //在线开始时间[0,24] 精确到秒
       uint32_t online_end_time;     //在线结束时间[0,24] 精确到秒
       uint8_t level;                //仲裁员配置信息
       uint8_t status;               //1.有效 2.invalid 无效
+      std::string email;            //邮箱
 
       uint64_t primary_key() const { return account.value; }
+      uint64_t get_work_status() const { return is_work; }
       uint64_t get_avail_time() const { return online_beg_time; }
-      uint64_t get_secondary_status() const { return is_arbiting; }
       uint64_t get_win_num() const { return win_num; }
-      double get_win_rate() const { return static_cast<double>(static_cast<double>(win_num) / total_num); }
+      double get_win_rate() const { return static_cast<double>(total_num == 0 ? 0.0 : (static_cast<double>(win_num) / total_num)); }
    };
 
-   using arbiter_index_t = multi_index<"arbiters"_n,
+   void update_arbiter_total_num(const symbol_code &stock, name who, uint32_t num)
+   {
+      std::string str_stock = stock.to_string();
+      str_stock = lower_str(str_stock);
+      arbiter_index_t users_(_self, name{str_stock}.value);
+      auto it = users_.require_find(who.value, "不是仲裁者");
+      users_.modify(it, _self, [&](arbiter &a) {
+         a.utime = CURRENT_SEC;
+         a.total_num = a.total_num + num;
+         a.is_work = ARBUSER_STATUS_WORKING;
+      });
+   }
+
+   void update_arbiter_win_num(const symbol_code &stock, name who, uint32_t num)
+   {
+      std::string str_stock = stock.to_string();
+      str_stock = lower_str(str_stock);
+      arbiter_index_t users_(_self, name{str_stock}.value);
+      auto it = users_.require_find(who.value, "不是仲裁者");
+      users_.modify(it, _self, [&](arbiter &a) {
+         a.utime = CURRENT_SEC;
+         a.win_num = a.win_num + num;
+      });
+   }
+
+   void update_arbiter_work_status(const symbol_code &stock, name who, uint8_t work_status)
+   {
+      std::string str_stock = stock.to_string();
+      str_stock = lower_str(str_stock);
+      arbiter_index_t users_(_self, name{str_stock}.value);
+      auto it = users_.require_find(who.value, "不是仲裁者");
+      users_.modify(it, _self, [&](arbiter &a) {
+         a.utime = CURRENT_SEC;
+         a.is_work = work_status;
+      });
+   }
+
+   using arbiter_index_t = multi_index<"arbitrators"_n,
                                        arbiter,
-                                       indexed_by<"bystatus"_n, const_mem_fun<arbiter, uint64_t, &arbiter::get_secondary_status>>,
+                                       indexed_by<"byworkstatus"_n, const_mem_fun<arbiter, uint64_t, &arbiter::get_work_status>>,
                                        indexed_by<"bytime"_n, const_mem_fun<arbiter, uint64_t, &arbiter::get_avail_time>>,
                                        indexed_by<"bywinnum"_n, const_mem_fun<arbiter, uint64_t, &arbiter::get_win_num>>,
                                        indexed_by<"bywinrate"_n, const_mem_fun<arbiter, double, &arbiter::get_win_rate>>
@@ -399,6 +442,7 @@ private:
    using judger_index_t = multi_index<"judgers"_n, judger>;
 
    /*scope是pair ,一个交易对里面的deal_id 是唯一的*/
+
    TABLE appeal
    {
       uint64_t id;            //作为主键 =deal_id
@@ -411,10 +455,28 @@ private:
       name bid_user;          //买币的用户
       name ask_user;          //卖币的用户
 
-      std::string bid_content;                        //买币放的申诉的内容
-      std::string ask_content;                        //买币放的申诉的内容
-      std::map<uint8_t, std::string> bid_attachments; //买币方的附件，附件可能是url或者ipfs hash
-      std::map<uint8_t, std::string> ask_attachments; //卖币方的附件，附件可能是url或者ipfs hash
+      std::string bid_content; //买币放的申诉的内容
+      std::string ask_content; //买币放的申诉的内容
+
+      //phone email reason desc
+      std::string ask_phone;
+      std::string ask_email;
+      std::string ask_reason;
+      std::string ask_desc;
+      std::string ask_s1; //备用
+      std::string ask_s2; //备用
+
+      std::string bid_phone;
+      std::string bid_email;
+      std::string bid_reason;
+      std::string bid_desc;
+      std::string bid_s1; //备用
+      std::string bid_s2; //备用
+
+      std::vector<std::string> ask_imgs;
+      std::vector<std::string> bid_imgs;
+      std::vector<std::string> bid_videos;
+      std::vector<std::string> ask_videos;
       std::string source;
       uint64_t primary_key() const { return id; }
    };
@@ -454,17 +516,27 @@ private:
    };
 
    using arborder_index_t = multi_index<"arborders"_n, arborder>;
+   using itr_arborder_t = arborder_index_t::const_iterator;
+
+   void update_arb_win_num(itr_arborder_t ptr_arborder)
+   {
+      auto itr_pair = get_market(ptr_arborder->pair);
+   }
 
    ///每个人的仲裁记录就是deal了,
    //scope 是每个用户，也就是说这个表保存的是一个用户的数据
 
    TABLE arbtask
    {
-      uint64_t id;          //自增主键
-      time_point_sec ctime; //创建时间
-      time_point_sec utime; //更新时间
+      uint64_t id; //自增主键
+      uint8_t side;
+      time_point_sec appeal_time; //申诉时间
+      time_point_sec ctime;       //创建时间
+      time_point_sec utime;       //更新时间
 
-      symbol_code pair;     //可以按pair过滤
+      symbol_code pair; //可以按pair过滤
+      symbol_code stock;
+      symbol_code money;
       uint64_t arborder_id; //仲裁id
       uint64_t deal_id;     //订单id
       uint64_t appeal_id;   //交易双方申诉id
@@ -482,8 +554,18 @@ private:
       std::string status_str; //1.仲裁收入 2.待结算 午夜12点结算 3.恶意仲裁 扣押金
       std::string source;     //备注
       uint64_t primary_key() const { return id; }
+      uint64_t by_status() const { return status; }
+      uint64_t by_pair() const { return pair.raw(); }
+      uint64_t by_stock() const { return stock.raw(); }
+      uint64_t by_money() const { return money.raw(); }
    };
-   using arbtask_index_t = multi_index<"arbtasks"_n, arbtask>;
+   using arbtask_index_t = multi_index<"arbtasks"_n, arbtask,
+                                       indexed_by<"bystatus"_n, const_mem_fun<arbtask, uint64_t, &arbtask::by_status>>,
+                                       indexed_by<"bypair"_n, const_mem_fun<arbtask, uint64_t, &arbtask::by_pair>>,
+                                       indexed_by<"bystock"_n, const_mem_fun<arbtask, uint64_t, &arbtask::by_stock>>,
+                                       indexed_by<"bymoney"_n, const_mem_fun<arbtask, uint64_t, &arbtask::by_money>>
+
+                                       >;
 
    TABLE market
    {
@@ -617,10 +699,48 @@ private:
 
    using adorder_iter_t = adorder_index_t::const_iterator;
 
+   //scope 是用户名
+   TABLE deallog
+   {
+      uint64_t id;      //自增id
+      uint64_t deal_id; //成交记录
+      uint64_t ad_id;   //广告id
+      symbol_code pair; //交易对
+      symbol_code stock;
+      symbol_code money;
+      uint8_t side;
+      uint8_t role;
+      asset price;
+      asset amount;
+      asset quota;
+      uint8_t status;
+      time_point ctime;
+      time_point utime;
+      uint64_t primary_key() const { return id; }
+      uint64_t by_pair() const { return pair.raw(); }
+      uint64_t by_status() const { return status; }
+      uint64_t by_stock() const { return stock.raw(); }
+      uint64_t by_money() const { return money.raw(); }
+      uint64_t by_side() const { return side; }
+   };
+
+   using deallog_index_t = multi_index<"dealhistory"_n,
+                                       deallog,
+                                       indexed_by<"bypair"_n, const_mem_fun<deallog, uint64_t, &deallog::by_pair>>,
+                                       indexed_by<"bystatus"_n, const_mem_fun<deallog, uint64_t, &deallog::by_status>>,
+                                       indexed_by<"bystock"_n, const_mem_fun<deallog, uint64_t, &deallog::by_stock>>,
+                                       indexed_by<"bymoney"_n, const_mem_fun<deallog, uint64_t, &deallog::by_money>>,
+                                       indexed_by<"byside"_n, const_mem_fun<deallog, uint64_t, &deallog::by_side>>
+
+                                       >;
+
    //此表属于合约,scope是交易对,
    TABLE deal
    {
-      uint64_t id; //deal id  自增id
+      uint64_t id;       //deal id  自增id,taker的交易id
+      uint64_t taker_id; //deal id  自增id
+      uint64_t maker_id; //deal id  自增id
+
       name user;
       uint8_t side;                           //taker是买还是卖
       uint8_t type;                           //广告订单类型，1限价 2市价
@@ -651,8 +771,43 @@ private:
 
       uint64_t primary_key() const { return id; }
       uint64_t get_secondary_user() const { return user.value; }
+      uint64_t get_secondary_maker_user() const { return maker_user.value; }
+
       uint64_t get_status() const { return status; }
    };
+
+   uint64_t new_dh_history(name who, uint64_t deal_id, uint64_t ad_id, const symbol_code &pair, uint8_t side, uint8_t role, const asset &price, const asset &amount, const asset &quota, time_point_sec ctime, time_point_sec utime)
+   {
+      deallog_index_t dh_(_self, who.value);
+      auto ret = dh_.available_primary_key();
+      auto it_pair = get_market(pair);
+      dh_.emplace(_self, [&](deallog &d) {
+         d.id = ret;
+         d.deal_id = deal_id;
+         d.ad_id = ad_id;
+         d.pair = pair;
+         d.stock = it_pair->stock.code();
+         d.money = it_pair->money.code();
+         d.side = side;
+         d.role = role;
+         d.price = price;
+         d.amount = amount;
+         d.quota = quota;
+         d.status = DEAL_STATUS_UNPAID;
+         d.ctime = ctime;
+         d.utime = utime;
+      });
+      return ret;
+   }
+   void update_dh_status(name who, uint64_t pk_id, uint8_t status)
+   {
+      deallog_index_t dh_(_self, who.value);
+      auto it = dh_.require_find(pk_id, "deal history not found");
+      dh_.modify(it, _self, [&](deallog &d) {
+         d.status = status;
+         d.utime = CURRENT_SEC;
+      });
+   }
 
    using deal_index_t = multi_index<"deals"_n,
                                     deal,
@@ -842,9 +997,33 @@ private:
       if (sender_id == 0)
          return true;
       auto res = cancel_deferred(sender_id);
-      print(res, " tip:1 if transaction was canceled, 0 if transaction was not found");
+      print(res, "(tip:1 if transaction was canceled, 0 if transaction was not found) ", reason.c_str());
       log(reason);
       return res == 1;
+   }
+
+   uint8_t get_level(const symbol_code &stock, asset balance)
+   {
+      auto state = overview_.get();
+      auto it_precision = state.precisions.find(stock.to_string());
+      check(it_precision != state.precisions.end(), "代币不存在，请先创建代币的交易对");
+      asset zero = asset(0, symbol(stock, it_precision->second));
+      check(balance > zero, "抵押代币必须大于0");
+      auto it = arbsts_.require_find(stock.raw(), "找不到仲裁等级配置项");
+      uint8_t level = 0;
+      for (auto &item : it->vec_level)
+      {
+         if (balance >= item)
+         {
+            ++level;
+            continue;
+         }
+         else
+         {
+            break;
+         }
+      }
+      return level;
    }
 
    void get_avail_arbiter(const symbol_code &stock, std::set<name> &res, int num, const time_point_sec &ctime);

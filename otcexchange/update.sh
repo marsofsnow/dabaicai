@@ -12,23 +12,33 @@ zz  push action otcexchange rmdeals '["ADXUSD"]' -p otcexchange
 zz  push action otcexchange rmdeals '["EOSUSD"]' -p otcexchange
 
 
+zz  push action otcexchange rmdhs '["zhouhao"]' -p otcexchange
+zz  push action otcexchange rmdhs '["dabaicai"]' -p otcexchange
+zz  push action otcexchange rmdhs '["huabinliang2"]' -p otcexchange
+zz  push action otcexchange rmdhs '["huabinliang1"]' -p otcexchange
+zz  push action otcexchange rmarbiters '[ADX]' -p otcexchange
+
+
+
+
+
+
+
+
+
+
+
+
 zz  push action otcexchange newmarket '["4,ADX","2,CNY","0.1000 ADX","0.1000 ADX","0.1000 ADX","0.1000 ADX","1.0000 ADX","100.0000 ADX","100.00 CNY","1000.00 CNY",600,180,180,180,180,6]' -p otcexchange
 zz  push action otcexchange newmarket '["4,ADX","2,USD","0.1000 ADX","0.1000 ADX","0.1000 ADX","0.1000 ADX","1.0000 ADX","100.0000 ADX","100.00 USD","1000.00 USD",600,180,180,180,180,6]' -p otcexchange
 zz  push action otcexchange newmarket '["4,EOS","2,USD","0.1000 EOS","0.1000 EOS","0.1000 EOS","0.1000 EOS","1.0000 EOS","100.0000 EOS","100.00 USD","1000.00 USD",600,180,180,180,180,6]' -p otcexchange
 
 
  zz  push action otcexchange  putadorder '["ADXCNY","bid","zhouhao","100.00 CNY","100.0000 ADX","1.0000 ADX","100.0000 ADX",[1,2],[1],"zh要买ADXCNY 100.0000 ADX,价格是100.00 CNY"]' -p zhouhao@active
- zz  push action otcexchange  putadorder '["ADXCNY","bid","zhouhao","100.00 CNY","100.0000 ADX","1.0000 ADX","100.0000 ADX",[1,2],[1],"zh要买ADXCNY 100.0000 ADX,价格是100.00 CNY"]' -p zhouhao@active
- zz  push action otcexchange  putadorder '["ADXCNY","bid","zhouhao","100.00 CNY","100.0000 ADX","1.0000 ADX","100.0000 ADX",[1,2],[1],"zh要买ADXCNY 100.0000 ADX,价格是100.00 CNY"]' -p zhouhao@active
- zz  push action otcexchange  putadorder '["ADXCNY","bid","zhouhao","100.00 CNY","100.0000 ADX","1.0000 ADX","100.0000 ADX",[1,2],[1],"zh要买ADXCNY 100.0000 ADX,价格是100.00 CNY"]' -p zhouhao@active
 
 
  zz  push action otcexchange  putadorder '["ADXCNY","ask","zhouhao","100.00 CNY","100.0000 ADX","1.0000 ADX","100.0000 ADX",[1,2],[1],"zh要卖ADXCNY 100.0000 ADX,价格是100.00 CNY"]' -p zhouhao@active
- zz  push action otcexchange  putadorder '["ADXCNY","ask","zhouhao","100.00 CNY","100.0000 ADX","1.0000 ADX","100.0000 ADX",[1,2],[1],"zh要卖ADXCNY 100.0000 ADX,价格是100.00 CNY"]' -p zhouhao@active
- zz  push action otcexchange  putadorder '["ADXCNY","ask","zhouhao","100.00 CNY","100.0000 ADX","1.0000 ADX","100.0000 ADX",[1,2],[1],"zh要卖ADXCNY 100.0000 ADX,价格是100.00 CNY"]' -p zhouhao@active
- zz  push action otcexchange  putadorder '["ADXCNY","ask","zhouhao","100.00 CNY","100.0000 ADX","1.0000 ADX","100.0000 ADX",[1,2],[1],"zh要卖ADXCNY 100.0000 ADX,价格是100.00 CNY"]' -p zhouhao@active
 
- 
  
  
 zz get table otcexchange adxcnymkask adorders
@@ -56,5 +66,7 @@ zz get table otcexchange otcexchange markets
 
     zz  push action otcexchange puttkorder '["ADXCNY","ask","dabaicai","50.00 CNY","10.0000 ADX",0,[1,2],[1],"taker是卖币吃单"]' -p dabaicai@active
     zz  push action otcexchange paydeal '["ADXCNY","zhouhao",4,1,"银行卡付钱"]' -p zhouhao@active
+
+
 
 
