@@ -441,7 +441,7 @@ ACTION otcexchange::putadorder(const symbol_code &pair,
 
    adorder_index_t adtable_(_self, name{scope}.value);
 
-   adtable_.emplace(user, [&](adorder &order) {
+   adtable_.emplace(_self, [&](adorder &order) {
       order.id = adtable_.available_primary_key();
 
       order.user = user;                                       //订单所属用户，注意是name类型
@@ -509,7 +509,7 @@ ACTION otcexchange::offad(const symbol_code &pair,
       print("卖币广告手动下架,需要解冻,把钱转给用户ok");
    }
 
-   adtable_.modify(it, user, [&](adorder &ad) {
+   adtable_.modify(it, _self, [&](adorder &ad) {
       ad.status = AD_STATUS_MAN_OFFTHESHELF;         //手动下架
       ad.status_str = AD_STATUS_MAN_OFFTHESHELF_STR; //手动下架
       ad.utime = current_time_point();
@@ -603,7 +603,7 @@ ACTION otcexchange::puttkorder(const symbol_code &pair,
    auto tk_dh_id = new_dh_history(user, deal_id, ad_id, pair, tk_side, MARKET_ROLE_TAKER, price, amount, quota, now, now);
    auto mk_dh_id = new_dh_history(mk_user, deal_id, ad_id, pair, mk_side_uint, MARKET_ROLE_MAKER, price, amount, quota, now, now);
 
-   dealtable_.emplace(user, [&](deal &deal) {
+   dealtable_.emplace(_self, [&](deal &deal) {
       deal.id = deal_id;
       deal.taker_id = tk_dh_id;
       deal.maker_id = mk_dh_id;
@@ -925,7 +925,7 @@ void otcexchange::commit_deal(name asker, deal_index_t &dealtable_, deal_iter_t 
    update_dh_status(itr_deal->maker_user, itr_deal->maker_id, status);
 
    //修改deal的状态
-   dealtable_.modify(itr_deal, user, [&](deal &d) {
+   dealtable_.modify(itr_deal, _self, [&](deal &d) {
       d.status = status;
       d.status_str = get_deal_status_str(status);
       d.utime = current_time_point();
