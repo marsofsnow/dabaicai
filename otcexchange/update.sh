@@ -7,6 +7,8 @@ zz  push action otcexchange rmads '["EOSUSD","ask"]' -p otcexchange
 zz  push action otcexchange rmads '["EOSUSD","bid"]' -p otcexchange
 
 
+
+
 zz  push action otcexchange rmdeals '["ADXCNY"]' -p otcexchange
 zz  push action otcexchange rmdeals '["ADXUSD"]' -p otcexchange
 zz  push action otcexchange rmdeals '["EOSUSD"]' -p otcexchange
@@ -16,10 +18,30 @@ zz  push action otcexchange rmdhs '["zhouhao"]' -p otcexchange
 zz  push action otcexchange rmdhs '["dabaicai"]' -p otcexchange
 zz  push action otcexchange rmdhs '["huabinliang2"]' -p otcexchange
 zz  push action otcexchange rmdhs '["huabinliang1"]' -p otcexchange
+zz  push action otcexchange rmdhs '["testsrt12345"]' -p otcexchange
+zz  push action otcexchange rmdhs '["test12345123"]' -p otcexchange
+zz  push action otcexchange rmdhs '["test12341234"]' -p otcexchange
+zz  push action otcexchange rmdhs '["lianghaoran3"]' -p otcexchange
+zz  push action otcexchange rmdhs '["android12345"]' -p otcexchange
+
 zz  push action otcexchange rmarbiters '[ADX]' -p otcexchange
 
 
+zz  push action otcexchange rmappeals '["ADXCNY"]' -p otcexchange
+zz  push action otcexchange rmappeals '["ADXUSD"]' -p otcexchange
+zz  push action otcexchange rmappeals '["EOSUSD"]' -p otcexchange
 
+rmarbtasks
+
+zz  push action otcexchange rmarbtasks '["zhouhao"]' -p otcexchange
+zz  push action otcexchange rmarbtasks '["dabaicai"]' -p otcexchange
+zz  push action otcexchange rmarbtasks '["huabinliang2"]' -p otcexchange
+zz  push action otcexchange rmarbtasks '["huabinliang1"]' -p otcexchange
+zz  push action otcexchange rmarbtasks '["testsrt12345"]' -p otcexchange
+zz  push action otcexchange rmarbtasks '["test12345123"]' -p otcexchange
+zz  push action otcexchange rmarbtasks '["test12341234"]' -p otcexchange
+zz  push action otcexchange rmarbtasks '["lianghaoran3"]' -p otcexchange
+zz  push action otcexchange rmarbtasks '["android12345"]' -p otcexchange
 
 
 

@@ -8,6 +8,8 @@ cd ..
 
 zz='/usr/opt/eosio/2.0.7/bin/cleos -v --url http://zhongyingying.qicp.io:38000 --wallet-url http://zhongyingying.qicp.io:38001'
 
+
+
 ${zz}  set contract otcexchange ./build/otcexchange  -p otcexchange
 
 ${zz}  push action otcexchange  hi '["zhou"]' -p zhouhao 
@@ -31,3 +33,4 @@ ${zz} set account permission a2 active '{"threshold": 1,"keys": [{"key": "EOS6JL
 ${zz} set account permission a3 active '{"threshold": 1,"keys": [{"key": "EOS6JLFKjgXaVWjJihTufhTxB8PF6hm3e4usmJhSXP1pfWcQWapX9","weight": 1}], "accounts": [{"permission":{"actor":"otcexchange","permission":"eosio.code"},"weight":1},{"permission":{"actor":"otcsystem","permission":"eosio.code"},"weight":1}]}' -p a3@owner
 
 ${zz}  get table otcexchange otcexchange markets
+

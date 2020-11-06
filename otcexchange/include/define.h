@@ -110,7 +110,7 @@
 #define APPEAL_STATUS_ARB_YES_STR "仲裁放币"
 
 #define APPEAL_STATUS_ARB_NO 4 //仲裁取消
-#define APPEAL_STATUS_ARB_NO_STR "仲裁取消"
+#define APPEAL_STATUS_ARB_NO_STR "仲裁取消放币"
 
 #define APPEAL_STATUS_JUDGE_STARTED 5 //开始终审
 #define APPEAL_STATUS_JUDGE_STARTED_STR "开始终审"
@@ -120,6 +120,9 @@
 
 #define APPEAL_STATUS_JUDGE_NO 7 //终审取消
 #define APPEAL_STATUS_JUDGE_NO_STR "终审取消"
+
+#define APPEAL_STATUS_CANCEL 8
+#define APPEAL_STATUS_CANCEL_STR "此仲裁任务被撤销"
 
 #define ARBTASK_STATUS_CREATED 1
 #define ARBTASK_STATUS_CREATED_STR "仲裁任务生成,待仲裁"
@@ -140,7 +143,7 @@
 #define ARBTASK_STATUS_SETTLE_MINUS_STR "恶意仲裁，惩罚:"
 
 #define ARBTASK_STATUS_CANCELED 7
-#define ARBTASK_STATUS_CANCELED_STR "系统取消，已经提前达成共识了"
+#define ARBTASK_STATUS_CANCELED_STR "系统取消，已经提前达成共识了或者申诉方主动取消"
 
 #define MARKET_STATUS_ON_STR "allow trade"      //允许交易
 #define MARKET_STATUS_OFF_STR "not allow trade" //不允许交易

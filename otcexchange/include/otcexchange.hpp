@@ -102,17 +102,19 @@ public:
 
    ACTION selfplaycoin(const symbol_code &pair, name asker, uint64_t deal_id, const std::string &reason, bool right_now);
 
+   ACTION rmappeals(const symbol_code &pair);
+
    ACTION putappeal(name who,
                     const std::string &side,
                     const symbol_code &pair,
                     uint64_t deal_id,
-                    const std::string &phone,
-                    const std::string &email,
+                    const std::vector<std::string> &vec_contacts,
                     const std::string &reason,
                     const std::string &desc,
                     const std::vector<std::string> &vec_img,
                     const std::vector<std::string> &vec_video,
                     const std::string &source);
+
    ACTION putjudge(name failer, const symbol_code &pair, uint64_t deal_id, const std::string &reason);
 
    ACTION defcldeal(const symbol_code &pair, name cmder, uint64_t deal_id, uint8_t status, const std::string &reason);
@@ -122,6 +124,7 @@ public:
 
    ACTION arbdeal(name arbiter, const symbol_code &pair, uint64_t deal_id, uint8_t choice, const std::string &reason);
    ACTION judgedeal(name judger, const symbol_code &pair, uint64_t deal_id, uint8_t choice, const std::string &reason);
+   ACTION moddealss(const symbol_code &pair, uint64_t deal_id, uint8_t status, const std::string &reason);
 
    ACTION rmmarket(const symbol_code &stock, const symbol_code &money);
 
@@ -130,6 +133,7 @@ public:
    ACTION rmads(const symbol_code &pair, const std::string &side);
    ACTION rmdeal(const symbol_code &pair, uint64_t id);
    ACTION rmdeals(const symbol_code &pair);
+   ACTION canmodpay(name user);
 
    inline void transfer(name from,
                         name to,
@@ -336,11 +340,12 @@ private:
    //用户表,scope 是一个个用户,用户名是小写
    TABLE user
    {
-      symbol_code stock;                //代币，主键
-      name account;                     //EOS账户
-      asset balance;                    //代币余额
-      uint32_t ad_total_num;            //发布的广告数
-      uint32_t ad_cancel_num;           //下架的广告数
+      symbol_code stock;      //代币，主键
+      name account;           //EOS账户
+      asset balance;          //代币余额
+      uint32_t ad_total_num;  //发布的广告数
+      uint32_t ad_cancel_num; //下架的广告数
+
       uint32_t deal_total_num;          //交易总数
       uint32_t deal_nopay_num;          //没有法币支付的交易总数
       uint32_t deal_succcess_nun;       //交易成功（没有走仲裁和终审）
@@ -348,9 +353,74 @@ private:
       uint32_t deal_arbiarate_fail_num; //仲裁失败总数
       uint32_t deal_judge_win_num;      //终审成功总数
       uint32_t deal_judge_fail_num;     //终审失败总数
+
       uint64_t primary_key() const { return stock.raw(); }
    };
+
+   TABLE adnotfill
+   {
+      name user; //主键
+      uint32_t num;
+      uint64_t primary_key() const { return user.value; }
+   };
+   using adnotfill_index_t = multi_index<"adnotfills"_n, adnotfill>;
+
+   void update_user_ad_unfill_num(name user, int32_t num)
+   {
+      adnotfill_index_t t(_self, _self.value);
+      auto it = t.find(user.value);
+      if (it == t.end())
+      {
+         t.emplace(_self, [&](adnotfill &i) {
+            i.user = user;
+            i.num = num;
+         });
+      }
+      else
+      {
+         t.modify(it, _self, [&](adnotfill &i) {
+            i.num = i.num + num;
+         });
+      }
+   }
+
    using user_index_t = multi_index<"users"_n, user>;
+
+   TABLE dealnotfill
+   {
+      name user; //主键
+      uint64_t primary_key() const { return user.value; }
+   };
+   using dealnotfill_index_t = multi_index<"dealnotfills"_n, dealnotfill>;
+
+   bool check_user_deal_not_fill(name user)
+   {
+      dealnotfill_index_t t(_self, _self.value);
+      auto it = t.find(user.value);
+      return it != t.end();
+   }
+
+   void user_deal_not_fill(name user)
+   {
+      dealnotfill_index_t t(_self, _self.value);
+      auto it = t.find(user.value);
+      if (it == t.end())
+      {
+         t.emplace(_self, [&](dealnotfill &i) {
+            i.user = user;
+         });
+      }
+   }
+
+   void user_deal_fill(name user)
+   {
+      dealnotfill_index_t t(_self, _self.value);
+      auto it = t.find(user.value);
+      if (it != t.end())
+      {
+         t.erase(it);
+      }
+   }
 
    //scope 是代币，主键是用户
    TABLE arbiter
@@ -443,7 +513,7 @@ private:
 
    /*scope是pair ,一个交易对里面的deal_id 是唯一的*/
 
-   TABLE appeal
+   TABLE xappeal
    {
       uint64_t id;            //作为主键 =deal_id
       uint64_t deal_id;       //成交记录id
@@ -459,15 +529,13 @@ private:
       std::string ask_content; //买币放的申诉的内容
 
       //phone email reason desc
-      std::string ask_phone;
-      std::string ask_email;
+      std::vector<std::string> ask_contacts;
       std::string ask_reason;
       std::string ask_desc;
       std::string ask_s1; //备用
       std::string ask_s2; //备用
 
-      std::string bid_phone;
-      std::string bid_email;
+      std::vector<std::string> bid_contacts;
       std::string bid_reason;
       std::string bid_desc;
       std::string bid_s1; //备用
@@ -481,7 +549,7 @@ private:
       uint64_t primary_key() const { return id; }
    };
 
-   using appeal_index_t = multi_index<"appeals"_n, appeal>;
+   using xappeal_index_t = multi_index<"xappeals"_n, xappeal>;
 
    /*scope是pair ,一个交易对里面的deal_id 是唯一的*/
    TABLE arborder
@@ -745,6 +813,7 @@ private:
       uint8_t side;                           //taker是买还是卖
       uint8_t type;                           //广告订单类型，1限价 2市价
       uint8_t role;                           //广告订单类型，1挂单 2吃单
+      uint8_t appeal_side;                    //申诉发起方
       time_point ctime;                       //创建时间
       time_point utime;                       //更新时间
       name maker_user;                        //对手方
@@ -759,6 +828,8 @@ private:
       uint32_t pay_timeout;                   //支付超时时间,
       uint64_t pay_timeout_sender_id;         //异步事物id
       uint64_t self_playcoin_sender_id;       //异步事物id
+      name arb_failer;                        //仲裁失败方
+      name judge_failer;                      //终审失败方
       uint64_t arb_sender_id;                 //仲裁异步事件
       std::vector<uint64_t> ask_pay_accounts; //支付方式或者支付id列表
       std::vector<uint64_t> bid_pay_accounts; //支付方式或者支付id列表
@@ -1040,4 +1111,6 @@ private:
                     deal_iter_t itr_deal,
                     uint8_t status,
                     const std::string &reason);
+
+   bool arb_can_cmd(const symbol_code &pair, uint64_t deal_id, const std::string &reason);
 };

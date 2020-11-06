@@ -76,6 +76,21 @@ zz push action adxio.token transfer '["adxio.token", "a1","10000.0000 ADX","test
 zz push action adxio.token transfer '["adxio.token", "a2","10000.0000 ADX","test"]' -p adxio.token
 zz push action adxio.token transfer '["adxio.token", "a3","10000.0000 ADX","test"]' -p adxio.token
 
+
+ShishiTang:
+testdfg12345
+
+ShishiTang:
+testsrt12345
+
+
+zz push action adxio.token transfer '["adxio.token", "android12345","10000.0000 ADX","test"]' -p adxio.token
+zz push action adxio.token transfer '["adxio.token", "test12345123","10000.0000 ADX","test"]' -p adxio.token
+
+
+zz push action adxio.token transfer '["adxio.token", "testdfg12345","100000.0000 ADX","test"]' -p adxio.token
+zz push action adxio.token transfer '["adxio.token", "testsrt12345","100000.0000 ADX","test"]' -p adxio.token
+
 zz push action eosio.token transfer '["eosio.token", "dabaicai","1000.0000 EOS","test"]' -p eosio.token
 
 
@@ -104,6 +119,8 @@ zz  push action otcexchange rmmarkets '[]' -p otcexchange
 zz  push action otcexchange rmads '["ADXCNY","ask"]' -p otcexchange
 zz  push action otcexchange rmads '["ADXCNY","bid"]' -p otcexchange
 zz  push action otcexchange rmdeals '["ADXCNY"]' -p otcexchange
+
+zz  push action otcexchange rmappeals '["ADXCNY"]' -p otcexchange
 
 
 
@@ -328,3 +345,8 @@ zz  get table  otcexchange a3 arbtasks --key-type i64 --index 2 -L 1 -U 1;
 zz  get table  otcexchange a2 arbtasks --key-type i64 --index 2  -U 1
 
   zz  push action otcexchange regarbiter '["huanghaoran3","ADX","3000.0000 ADX",60,82800,"264@qq.com","1234"]' -p huanghaoran3@active 
+
+  zz  get table  otcexchange adxcny appeals --key-type i64 --index 1 -L 14 -U 14;
+
+
+  zz get table otcexchange  adxcny arborders --key-type i64 --index 1 -L 14 -U 14;
