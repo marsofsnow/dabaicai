@@ -53,10 +53,10 @@ public:
    //USING_ACTION(otcexchange, hi);
    ACTION newmarket(const symbol &stock,
                     const symbol &money,
-                    asset taker_ask_fee_rate,
-                    asset taker_bid_fee_rate,
-                    asset maker_ask_fee_rate,
-                    asset maker_bid_fee_rate,
+                    double taker_ask_fee_rate,
+                    double taker_bid_fee_rate,
+                    double maker_ask_fee_rate,
+                    double maker_bid_fee_rate,
                     asset amount_min,
                     asset amount_max,
                     asset price_min,
@@ -103,6 +103,7 @@ public:
    ACTION selfplaycoin(const symbol_code &pair, name asker, uint64_t deal_id, const std::string &reason, bool right_now);
 
    ACTION rmappeals(const symbol_code &pair);
+   ACTION rmarborders(const symbol_code &pair);
 
    ACTION putappeal(name who,
                     const std::string &side,
@@ -115,7 +116,12 @@ public:
                     const std::vector<std::string> &vec_video,
                     const std::string &source);
 
-   ACTION putjudge(name failer, const symbol_code &pair, uint64_t deal_id, const std::string &reason);
+   ACTION putjudge(name failer, const symbol_code &pair, uint64_t deal_id, const std::vector<std::string> &vec_contacts,
+                   const std::string &reason,
+                   const std::string &desc,
+                   const std::vector<std::string> &vec_img,
+                   const std::vector<std::string> &vec_video,
+                   const std::string &source);
 
    ACTION defcldeal(const symbol_code &pair, name cmder, uint64_t deal_id, uint8_t status, const std::string &reason);
 
@@ -134,6 +140,8 @@ public:
    ACTION rmdeal(const symbol_code &pair, uint64_t id);
    ACTION rmdeals(const symbol_code &pair);
    ACTION canmodpay(name user);
+   ACTION modfeerate(name user, const symbol &stock, asset fee_rate);
+   ACTION rmnotfills();
 
    inline void transfer(name from,
                         name to,
@@ -214,13 +222,15 @@ public:
      to: 目标账号。
      assset: 资产数额。
      fee: 手续费数额
+     askorbid:谁出手续费 true：买方 fasle卖方  
    *  cc push action otcsystem transfer '["eoscngdszlgz", "liguozheng11", "10.0000 ADX", "1.0000 ADX"]' -p eoscngdszlgz  
    */
    inline void settle_stock(name from,
                             name to,
                             asset quantity,
                             asset fee,
-                            const std::string &memo)
+                            const std::string &memo,
+                            bool askorbid)
    {
 #ifdef ENV_DEV
       action(
@@ -236,7 +246,7 @@ public:
           permission_level{from, name{"active"}},
           name{PRO_TOKEN_CONTRACT_NAME},
           name{PRO_TOKEN_CONTRACT_SETTLE},
-          std::make_tuple(from, to, quantity, fee))
+          std::make_tuple(from, to, quantity, fee, askorbid))
           .send();
 #endif
    }
@@ -286,18 +296,46 @@ private:
       uint64_t primary_key() const { return balance.symbol.code().raw(); }
    };
 
-   //余额表历史，此表属于合约，但是scope是用户，业务调试用，
-   TABLE accountlog
+   //余额表历史，此表属于合约，但是scope是用户，业
+   TABLE balancelog
    {
       uint64_t id;          //自增id
       time_point_sec ctime; //创建时间
-      name user;            //用户
+      name user;            //scope
+      symbol_code stock;    //二级索引
+
       std::string business; //什么业务员导致了这个变化
-      asset change;         //变化的值
-      asset balance;        //变化后的值
-      std::string detail;   //详情
+      asset amount;
+      asset fee;
+      asset change;       //变化的值
+      asset balance;      //变化后的值
+      std::string detail; //详情
       uint64_t primary_key() const { return id; }
+      uint64_t bystock() const { return stock.raw(); }
    };
+
+   using balancelog_index_t = multi_index<"balancelogs"_n,
+                                          balancelog,
+                                          indexed_by<"bystock"_n, const_mem_fun<balancelog, uint64_t, &balancelog::bystock>>
+
+                                          >;
+
+   void inset_balancelog(name user, const symbol_code &stock, const std::string &business, asset amount, asset fee, asset change, asset balance, const std::string &detail)
+   {
+      balancelog_index_t t(_self, user.value); //得到表
+      t.emplace(_self, [&](balancelog &b) {
+         b.id = t.available_primary_key();
+         b.ctime = CURRENT_SEC;
+         b.user = user;
+         b.stock = stock;
+         b.business = business;
+         b.amount = amount;
+         b.fee = fee;
+         b.change = change;
+         b.balance = balance;
+         b.detail = detail;
+      });
+   }
 
    TABLE logitem
    {
@@ -338,7 +376,7 @@ private:
    arbst_index_t arbsts_;
 
    //用户表,scope 是一个个用户,用户名是小写
-   TABLE user
+   TABLE exchangeuser
    {
       symbol_code stock;      //代币，主键
       name account;           //EOS账户
@@ -353,9 +391,14 @@ private:
       uint32_t deal_arbiarate_fail_num; //仲裁失败总数
       uint32_t deal_judge_win_num;      //终审成功总数
       uint32_t deal_judge_fail_num;     //终审失败总数
+      asset taker_ask_fee_rate;
+      asset taker_bid_fee_rate;
+      asset maker_ask_fee_rate;
+      asset maker_bid_fee_rate;
 
       uint64_t primary_key() const { return stock.raw(); }
    };
+   using user_index_t = multi_index<"users"_n, exchangeuser>;
 
    TABLE adnotfill
    {
@@ -383,8 +426,6 @@ private:
          });
       }
    }
-
-   using user_index_t = multi_index<"users"_n, user>;
 
    TABLE dealnotfill
    {
@@ -440,11 +481,14 @@ private:
       uint32_t win_num;             //仲裁胜利场次
       uint32_t today_win_num;       //今天仲裁胜利场次
       uint8_t is_work;              //是否正在仲裁中
-      uint32_t online_beg_time;     //在线开始时间[0,24] 精确到秒
-      uint32_t online_end_time;     //在线结束时间[0,24] 精确到秒
-      uint8_t level;                //仲裁员配置信息
-      uint8_t status;               //1.有效 2.invalid 无效
-      std::string email;            //邮箱
+      uint32_t judge_animus_num;    //恶意仲裁数
+      uint32_t judge_win_num;       //终审获胜数
+
+      uint32_t online_beg_time; //在线开始时间[0,24] 精确到秒
+      uint32_t online_end_time; //在线结束时间[0,24] 精确到秒
+      uint8_t level;            //仲裁员配置信息
+      uint8_t status;           //1.有效 2.invalid 无效
+      std::string email;        //邮箱
 
       uint64_t primary_key() const { return account.value; }
       uint64_t get_work_status() const { return is_work; }
@@ -453,7 +497,7 @@ private:
       double get_win_rate() const { return static_cast<double>(total_num == 0 ? 0.0 : (static_cast<double>(win_num) / total_num)); }
    };
 
-   void update_arbiter_total_num(const symbol_code &stock, name who, uint32_t num)
+   void update_arbiter_total_num(const symbol_code &stock, name who)
    {
       std::string str_stock = stock.to_string();
       str_stock = lower_str(str_stock);
@@ -461,12 +505,13 @@ private:
       auto it = users_.require_find(who.value, "不是仲裁者");
       users_.modify(it, _self, [&](arbiter &a) {
          a.utime = CURRENT_SEC;
-         a.total_num = a.total_num + num;
-         a.is_work = ARBUSER_STATUS_WORKING;
+         a.total_num = a.total_num + 1;
+         a.is_work = a.is_work + 1;
+         a.last_arb_time = a.utime;
       });
    }
 
-   void update_arbiter_win_num(const symbol_code &stock, name who, uint32_t num)
+   void update_arbiter_win_num(const symbol_code &stock, name who)
    {
       std::string str_stock = stock.to_string();
       str_stock = lower_str(str_stock);
@@ -474,11 +519,11 @@ private:
       auto it = users_.require_find(who.value, "不是仲裁者");
       users_.modify(it, _self, [&](arbiter &a) {
          a.utime = CURRENT_SEC;
-         a.win_num = a.win_num + num;
+         a.win_num = a.win_num + 1;
       });
    }
 
-   void update_arbiter_work_status(const symbol_code &stock, name who, uint8_t work_status)
+   void rudece_arbiter_work_num(const symbol_code &stock, name who)
    {
       std::string str_stock = stock.to_string();
       str_stock = lower_str(str_stock);
@@ -486,7 +531,7 @@ private:
       auto it = users_.require_find(who.value, "不是仲裁者");
       users_.modify(it, _self, [&](arbiter &a) {
          a.utime = CURRENT_SEC;
-         a.is_work = work_status;
+         a.is_work = a.is_work - 1;
       });
    }
 
@@ -498,6 +543,9 @@ private:
                                        indexed_by<"bywinrate"_n, const_mem_fun<arbiter, double, &arbiter::get_win_rate>>
 
                                        >;
+   using arbiter_itr = arbiter_index_t::const_iterator;
+   inline bool arbiter_isnotwork(const arbiter &er) { return er.is_work == 0; }
+   inline bool arbiter_isenough(const arbiter &er, asset amount) { return er.balance >= amount; }
 
    //scope是stock
    TABLE judger
@@ -510,6 +558,38 @@ private:
       uint64_t primary_key() const { return stock.raw(); }
    };
    using judger_index_t = multi_index<"judgers"_n, judger>;
+
+   /*scope是pair ,一个交易对里面的deal_id 是唯一的*/
+
+   TABLE judge
+   {
+      uint64_t id;          //作为主键 =deal_id
+      uint64_t deal_id;     //成交记录id
+      uint64_t arborder_id; //仲裁订单id
+      symbol_code pair;     //交易对
+      time_point_sec ctime; //创建时间
+      time_point_sec utime; //更新时间
+
+      uint8_t judge_side; //终审者是买还是卖,只有失败方才能终审
+      name bid_user;      //买币的用户
+      name ask_user;      //卖币的用户
+      name arb_failer;    //仲裁失败者,也就是终审发起方
+
+      std::string content; //申诉的内容
+
+      //phone email reason desc
+      std::vector<std::string> contacts; //联系方式
+      std::string reason;                //申诉原因
+      std::string desc;                  //问题描述
+      std::vector<std::string> imgs;
+      std::vector<std::string> videos;
+      std::string source; //备注
+      std::string s1;     //备用
+      std::string s2;     //备用
+      uint64_t primary_key() const { return id; }
+   };
+
+   using judge_index_t = multi_index<"judges"_n, judge>;
 
    /*scope是pair ,一个交易对里面的deal_id 是唯一的*/
 
@@ -586,13 +666,7 @@ private:
    using arborder_index_t = multi_index<"arborders"_n, arborder>;
    using itr_arborder_t = arborder_index_t::const_iterator;
 
-   void update_arb_win_num(itr_arborder_t ptr_arborder)
-   {
-      auto itr_pair = get_market(ptr_arborder->pair);
-   }
-
    ///每个人的仲裁记录就是deal了,
-   //scope 是每个用户，也就是说这个表保存的是一个用户的数据
 
    TABLE arbtask
    {
@@ -626,24 +700,26 @@ private:
       uint64_t by_pair() const { return pair.raw(); }
       uint64_t by_stock() const { return stock.raw(); }
       uint64_t by_money() const { return money.raw(); }
+      uint64_t by_ctime() const { return ctime.sec_since_epoch(); }
    };
    using arbtask_index_t = multi_index<"arbtasks"_n, arbtask,
                                        indexed_by<"bystatus"_n, const_mem_fun<arbtask, uint64_t, &arbtask::by_status>>,
                                        indexed_by<"bypair"_n, const_mem_fun<arbtask, uint64_t, &arbtask::by_pair>>,
                                        indexed_by<"bystock"_n, const_mem_fun<arbtask, uint64_t, &arbtask::by_stock>>,
-                                       indexed_by<"bymoney"_n, const_mem_fun<arbtask, uint64_t, &arbtask::by_money>>
+                                       indexed_by<"bymoney"_n, const_mem_fun<arbtask, uint64_t, &arbtask::by_money>>,
+                                       indexed_by<"byctime"_n, const_mem_fun<arbtask, uint64_t, &arbtask::by_ctime>>
 
                                        >;
 
    TABLE market
    {
-      symbol_code pair;         //交易对
-      symbol stock;             //coin 需要指定[代币精度,代币符号]
-      symbol money;             //fiat 需要指定[法币精度,法币符合]
-      asset taker_ask_fee_rate; // taker手续费费率[数量,代币精度，代币符号]
-      asset taker_bid_fee_rate; // taker手续费费率[数量,代币精度，代币符号]
-      asset maker_ask_fee_rate; // maker手续费费率[数量,代币精度，代币符号]
-      asset maker_bid_fee_rate; // maker手续费费率[数量,代币精度，代币符号]
+      symbol_code pair;           //交易对
+      symbol stock;               //coin 需要指定[代币精度,代币符号]
+      symbol money;               //fiat 需要指定[法币精度,法币符合]
+      int64_t taker_ask_fee_rate; // taker手续费费率[double×pow(10,4)]
+      int64_t taker_bid_fee_rate; // taker手续费费率[double×pow(10,4)]
+      int64_t maker_ask_fee_rate; // maker手续费费率[double×pow(10,4)]
+      int64_t maker_bid_fee_rate; // maker手续费费率[double×pow(10,4)]
 
       asset amount_min;                  // 限定的最小交易数量  [数量，代币精度，代币符号]
       asset amount_max;                  // 限定的最大交易数量  [数量，代币精度，代币符号]
@@ -696,22 +772,22 @@ private:
 
    TABLE adorder
    {
-      uint64_t id;              //广告订单id，自增主键,scope = pair+side.相当于盘口,卖盘，由小到大，买盘由大到小
-      name user;                //广告订单所属用户，注意是name类型
-      symbol_code pair;         //广告订单的交易对
-      time_point ctime;         //广告订单创建时间，精确到微秒
-      time_point utime;         //广告订单更新时间，精确到微秒
-      uint8_t status;           //广告订单状态，吃单和挂单的状态不同
-      std::string status_str;   //广告订单状态，吃单和挂单的状态不同
-      uint8_t side;             //买卖类型，1卖 2买
-      uint8_t type;             //广告订单类型，1限价 2市价
-      uint8_t role;             //广告订单类型，1挂单 2吃单
-      asset price;              //广告订单交易价格
-      asset amount;             //广告订单交易数量
-      asset amount_min;         //广告订单最小成交数量
-      asset amount_max;         //广告订单最大成交数量
-      asset maker_ask_fee_rate; //吃单的手续费率(只展示使用)
-      asset maker_bid_fee_rate; //挂单的手续费率（只展示使用）
+      uint64_t id;                //广告订单id，自增主键,scope = pair+side.相当于盘口,卖盘，由小到大，买盘由大到小
+      name user;                  //广告订单所属用户，注意是name类型
+      symbol_code pair;           //广告订单的交易对
+      time_point ctime;           //广告订单创建时间，精确到微秒
+      time_point utime;           //广告订单更新时间，精确到微秒
+      uint8_t status;             //广告订单状态，吃单和挂单的状态不同
+      std::string status_str;     //广告订单状态，吃单和挂单的状态不同
+      uint8_t side;               //买卖类型，1卖 2买
+      uint8_t type;               //广告订单类型，1限价 2市价
+      uint8_t role;               //广告订单类型，1挂单 2吃单
+      asset price;                //广告订单交易价格
+      asset amount;               //广告订单交易数量
+      asset amount_min;           //广告订单最小成交数量
+      asset amount_max;           //广告订单最大成交数量
+      int64_t maker_ask_fee_rate; //吃单的手续费率(只展示使用)
+      int64_t maker_bid_fee_rate; //挂单的手续费率（只展示使用）
 
       asset left;                         //剩余多少数量未成交
       asset freeze;                       //冻结的stock或者money,处于正在交易中,只有卖币挂单才有值
@@ -831,6 +907,8 @@ private:
       name arb_failer;                        //仲裁失败方
       name judge_failer;                      //终审失败方
       uint64_t arb_sender_id;                 //仲裁异步事件
+      uint32_t def_cancel_time;               //初次仲裁取消，延迟取消的时间,精确到s,这段时间用户可以发起终审
+      uint32_t def_playcoin_time;             //初次仲裁通过，延迟放币的时间,精确到s，这段时间用户可以发起终审
       std::vector<uint64_t> ask_pay_accounts; //支付方式或者支付id列表
       std::vector<uint64_t> bid_pay_accounts; //支付方式或者支付id列表
       std::vector<uint8_t> ask_pay_ways;      //支持的法币帐号
@@ -1097,7 +1175,7 @@ private:
       return level;
    }
 
-   void get_avail_arbiter(const symbol_code &stock, std::set<name> &res, int num, const time_point_sec &ctime);
+   void get_avail_arbiter(const symbol_code &stock, std::set<name> &res, int num, const time_point_sec &ctime, deal_iter_t itr_deal);
 
    int update_art(name arbiter, const symbol_code &pair, uint64_t deal_id, uint8_t choice, const std::string &reason);
 
@@ -1113,4 +1191,20 @@ private:
                     const std::string &reason);
 
    bool arb_can_cmd(const symbol_code &pair, uint64_t deal_id, const std::string &reason);
+
+   inline int64_t double_to_pow4(double num)
+   {
+      static auto pr4 = std::pow(10, 4);
+      return static_cast<int64_t>(num * pr4 + 0.5);
+   }
+
+   //std::pair<asset, asset> get_user_fee_rate(name user, const symbol_code &pair, uint8_t role);
+   std::pair<int64_t, int64_t> get_user_fee_rate_(name user, const symbol_code &pair, uint8_t role);
+
+   asset get_fee(name user, const symbol_code &pair, asset amount, uint8_t askorbid, uint8_t role);
+   inline asset cal_fee(asset amount, int64_t fee_rate)
+   {
+      static auto pr4 = std::pow(10, 4);
+      return asset(static_cast<int64_t>(amount.amount * (fee_rate) / pr4 + 0.5), amount.symbol);
+   }
 };

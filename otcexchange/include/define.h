@@ -10,13 +10,11 @@
 #define TOKEN_CONTRACT_TRANSFER_ACTION "transfer"
 #define TOKEN_TEMP_ACCOUNT "otcexchange"
 
-#define ARBUSER_STATUS_WORKING 1
-#define ARBUSER_STATUS_NOTWORKING 2
-
 #define ARBUSER_STATUS_REGED 1   //已经注册
 #define ARBUSER_STATUS_UNREGED 2 //解除注册
 
-#define GROUP_ARBPEOPLE_NUM 3
+#define GROUP_ARBPEOPLE_NUM 9
+#define GROUP_ARBPEOPLE_MIN_NUM 7
 #define GROUP_OVER_NUM 3
 
 //生产环境外联合约
@@ -30,6 +28,19 @@
 
 #define BALANCE_TYPE_AVAILABLE 1
 #define BALANCE_TYPE_FREEZE 2
+
+#define BALANCE_MOD_PUTMK_ASK "发布卖币广告（冻结手续费和出售数量）"
+#define BALANCE_MOD_PUTMK_BID "发布买币广告，（无需冻结）"
+
+#define BALANCE_MOD_OFFMK_ASK "下架卖币广告（解冻手续费和出售数量）"
+#define BALANCE_MOD_OFFMK_BID "下架买币广告，买币（无需冻结）"
+
+#define BALANCE_MOD_TK_ASK "taker卖币，需冻结"
+
+#define BALANCE_MOD_DEAL_ASK "买币广告被成交（广告主实际得到的币=成交-手续费）"
+#define BALANCE_MOD_DEAL_BID "卖币广告被成交（广告主放币=成交，另外收取广告主手续费）"
+
+#define BALANCE_MOD_CANCEL_TK "deal被取消"
 
 //未付款
 #define DEAL_STATUS_UNPAID 10             //未付款

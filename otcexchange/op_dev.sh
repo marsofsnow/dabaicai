@@ -90,8 +90,11 @@ zz push action adxio.token transfer '["adxio.token", "test12345123","10000.0000 
 
 zz push action adxio.token transfer '["adxio.token", "testdfg12345","100000.0000 ADX","test"]' -p adxio.token
 zz push action adxio.token transfer '["adxio.token", "testsrt12345","100000.0000 ADX","test"]' -p adxio.token
+zz push action adxio.token transfer '["adxio.token", "aaaa11112222","100000.0000 ADX","test"]' -p adxio.token
 
-zz push action eosio.token transfer '["eosio.token", "dabaicai","1000.0000 EOS","test"]' -p eosio.token
+zz push action eosio.token transfer '["eosio.token", "dabaicai","10000.0000 EOS","test"]' -p eosio.token
+zz push action eosio.token transfer '["eosio.token", "zhouhao","10000.0000 EOS","test"]' -p eosio.token
+zz push action eosio.token transfer '["eosio.token", "otcexchange","10000.0000 EOS","test"]' -p eosio.token
 
 
 zz get table adxio.token dabaicai accounts
@@ -336,7 +339,7 @@ ACTION judgedeal(name judger, const symbol_code &pair, uint64_t deal_id, uint8_t
 
 
 
-zz  get table  otcexchange adxcny deals --key-type i64 --index 1 -L 7 -U 7;
+zz  get table  otcexchange adxcny deals --key-type i64 --index 1 -L 14 -U 14;
 
 
 zz  get table  otcexchange a1 arbtasks --key-type i64 --index 2 -L 1 -U 1;
@@ -344,9 +347,35 @@ zz  get table  otcexchange a2 arbtasks --key-type i64 --index 2 -L 1 -U 1;
 zz  get table  otcexchange a3 arbtasks --key-type i64 --index 2 -L 1 -U 1;
 zz  get table  otcexchange a2 arbtasks --key-type i64 --index 2  -U 1
 
-  zz  push action otcexchange regarbiter '["huanghaoran3","ADX","3000.0000 ADX",60,82800,"264@qq.com","1234"]' -p huanghaoran3@active 
+  
+  zz  push action otcexchange modfeerate '["zhouhao","4,ADX","2.0000 ADX"]' -p zhouhao
+  
+  zz  push action otcexchange rmnotfills '[]' -p otcexchange
 
-  zz  get table  otcexchange adxcny appeals --key-type i64 --index 1 -L 14 -U 14;
+  zz  get table  otcexchange adxcny xappeals --key-type i64 --index 1 -L 3 -U 3;
 
 
-  zz get table otcexchange  adxcny arborders --key-type i64 --index 1 -L 14 -U 14;
+  zz get table otcexchange  adxcny arborders --key-type i64 --index 1 -L 0 -U 0;
+
+
+ACTION otcexchange::putappeal(name who,
+                              const std::string &side,
+                              const symbol_code &pair,
+                              uint64_t deal_id,
+                              const std::vector<std::string> &vec_contacts,
+                              const std::string &reason,
+                              const std::string &desc,
+                              const std::vector<std::string> &vec_img,
+                              const std::vector<std::string> &vec_video,
+                              const std::string &source)
+
+
+  zz  push action otcexchange  putappeal '["dabaicai","ask","ADXCNY",4,["18588250437","656717520@qq.com"],"原因1","描述1",["http://zhongyingying.qicp.io:28080/ipfs/QmcnSL6oApFVYDb4wmUD5XLxxBzFW2H51f2Sdu3QjcFZqA"],["url"],"卖家发起申诉"]' -p dabaicai
+
+
+
+
+  zz get table otcexchange zhouhao balancelogs
+  zz get table otcexchange dabaicai balancelogs
+
+  zz get table otcexchange   adx  arbitrators  --key-type i64 --index 2 -L 2
