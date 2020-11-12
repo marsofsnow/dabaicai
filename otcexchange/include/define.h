@@ -13,9 +13,17 @@
 #define ARBUSER_STATUS_REGED 1   //已经注册
 #define ARBUSER_STATUS_UNREGED 2 //解除注册
 
+#define JUDUSER_STATUS_REGED 1 //已经注册
+
+#define JUDUSER_STATUS_UNREGED 2 //解除注册
+
 #define GROUP_ARBPEOPLE_NUM 9
 #define GROUP_ARBPEOPLE_MIN_NUM 7
 #define GROUP_OVER_NUM 3
+
+#define GROUP_JUDPEOPLE_NUM 3
+#define GROUP_JUDPEOPLE_MIN_NUM 1
+#define GROUP_JUDOVER_NUM 1
 
 //生产环境外联合约
 #define PRO_TOKEN_CONTRACT_NAME "otcsystem"
@@ -110,6 +118,14 @@
 
 #define DAY_SECONDS 86400
 
+//角色 1：交易用户 2.仲裁者 3.终审者 4.交易用户+仲裁者 5.交易用户+终审员
+#define USER_ROLE_EXCHANGE 1
+
+#define USER_ROLE_ARB 2
+#define USER_ROLE_JUDGE 3
+#define USER_ROLE_EX_ARB 4
+#define USER_ROLE_EX_JUDGE 5
+
 // 仲裁订单的状态
 #define APPEAL_STATUS_CREATED 1                    //仲裁订单被创建
 #define APPEAL_STATUS_CREATED_STR "仲裁订单被创建" //仲裁订单被创建
@@ -155,6 +171,18 @@
 
 #define ARBTASK_STATUS_CANCELED 7
 #define ARBTASK_STATUS_CANCELED_STR "系统取消，已经提前达成共识了或者申诉方主动取消"
+
+#define JUDTASK_STATUS_CREATED 1
+#define JUDTASK_STATUS_CREATED_STR "仲裁任务生成,待仲裁"
+
+#define JUDTASK_STATUS_YES 2
+#define JUDTASK_STATUS_YES_STR "已仲裁，仲裁放币"
+
+#define JUDTASK_STATUS_NO 3
+#define JUDTASK_STATUS_NO_STR "已仲裁，仲裁取消"
+
+#define JUDTASK_STATUS_CANCELED 4
+#define JUDTASK_STATUS_CANCELED_STR "系统取消，已经被其他终审者抢先"
 
 #define MARKET_STATUS_ON_STR "allow trade"      //允许交易
 #define MARKET_STATUS_OFF_STR "not allow trade" //不允许交易

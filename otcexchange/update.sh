@@ -61,7 +61,8 @@ zz  push action otcexchange rmnotfills '[]' -p otcexchange
 
 
 zz  push action otcexchange rmarbiters '[ADX]' -p otcexchange
-
+zz  push action otcexchange rmjudgers '[ADX]' -p otcexchange
+zz get table otcexchange otcexchange judgers
 
 
  zz  push action otcexchange newarbst '["ADX",["3000.0000 ADX","2000.0000 ADX","1000.0000 ADX","4000.0000 ADX","6000.0000 ADX","5000.0000 ADX","7000.0000 ADX","8000.0000 ADX","9000.0000 ADX","10000.0000 ADX"]]' -p otcexchange@active 

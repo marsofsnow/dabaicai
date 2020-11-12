@@ -77,11 +77,7 @@ zz push action adxio.token transfer '["adxio.token", "a2","10000.0000 ADX","test
 zz push action adxio.token transfer '["adxio.token", "a3","10000.0000 ADX","test"]' -p adxio.token
 
 
-ShishiTang:
-testdfg12345
 
-ShishiTang:
-testsrt12345
 
 
 zz push action adxio.token transfer '["adxio.token", "android12345","10000.0000 ADX","test"]' -p adxio.token
@@ -107,6 +103,7 @@ zz  system buyram eosio  otc "1000 EOS"   # 别人给maker买RAM
 
 zz system delegatebw maker otc '500.0000 EOS' '500.0000 EOS' -p otc # 自己抵押
 zz system delegatebw maker otc '500.0000 EOS' '500.0000 EOS' -p otc # 别人给自己抵押
+
 
 
 
@@ -278,17 +275,24 @@ zz get table adxio.token dabaicai accounts
   zz  push action otcexchange regarbiter '["a1","ADX","1000.0000 ADX",60,82800,"656717520@qq.com","1234"]' -p a1@active 
   zz  push action otcexchange regarbiter '["a2","ADX","2000.0000 ADX",120,82800,"656717520@qq.com","1234"]' -p a2@active 
   zz  push action otcexchange regarbiter '["a3","ADX","3000.0000 ADX",180,82800,"656717520@qq.com","1234"]' -p a3@active 
-  zz  push action otcexchange unregarbiter '["a3","ADX","XXXX"]' -p a3@active 
+  zz  push action otcexchange unregarbiter '["a1","ADX","XXXX"]' -p a1@active 
   zz get table otcexchange adx  arbiters
   zz get table otcexchange a2  arbers
   zz get table otcexchange a3  arbers
   zz push action otcexchange rmarbiter '["a1]' -p otcexchange
 
    zz get table otcexchange adx  arbitrators
+   zz get table otcexchange adx  judgers
+
+   zz get table otcexchange a1 userroles --key-type i64 --index 1 -L "ADX" -U "ADX";
  
   #ACTION otcexchange::unregarbiter(name arbitername, const symbol_code &stock, const std::string &reason)
 
-
+zz  push action otcexchange regjuder '["otcexchange","ADX",0,86400,"656717520@qq.com","1234"]' -p otcexchange@active 
+zz  push action otcexchange moduserrole '["lianghaoran4","ADX",2]' -p lianghaoran4@active 
+zz  push action otcexchange moduserrole '["lianghaoran3","ADX",2]' -p lianghaoran3@active 
+zz  push action otcexchange moduserrole '["huabinliang2","ADX",2]' -p huabinliang2@active 
+zz  push action otcexchange moduserrole '["huabinliang3","ADX",2]' -p huabinliang3@active 
 
 ACTION putappeal(name who,
                     const std::string &side,
@@ -379,3 +383,13 @@ ACTION otcexchange::putappeal(name who,
   zz get table otcexchange dabaicai balancelogs
 
   zz get table otcexchange   adx  arbitrators  --key-type i64 --index 2 -L 2
+
+
+//"EOS8GnxsyzChJF4pobmcvYan3qv1ovw66ypYNiJZatSWKkejfEqg4",
+//"5K8bmn8AMNewSzgB3VNnz7pahVVLTF7LaksnF8tjoSPVcvS2xDw"
+
+cleos wallet private_keys -n lgz
+密码 PW5KCNg2etNZABk9MDcbHLCCjDGYTYiSqZN78wtY7rTx5b7j2c7yT
+
+[root@localhost wallets]#  cleos wallet private_keys -n default
+PW5JL3SP3tG42sch9z5Li9eaYMM96QXA5z6b23mqd5nBpdMKstsAj
