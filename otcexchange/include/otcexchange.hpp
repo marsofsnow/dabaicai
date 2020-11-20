@@ -37,7 +37,8 @@ public:
                      asset amount_min,
                      asset amount_max,
                      const std::vector<uint64_t> &pay_accounts,
-                     const std::vector<uint8_t> &pay_ways,
+                     const std::vector<uint64_t> &pay_ways,
+                     const std::vector<std::string> &pay_account_contexts,
                      const std::string &source);
 
    ACTION offad(const symbol_code &pair,
@@ -52,17 +53,15 @@ public:
                      asset amount,
                      uint64_t ad_id,
                      const std::vector<uint64_t> &pay_accounts,
-                     const std::vector<uint8_t> &pay_ways,
+                     const std::vector<uint64_t> &pay_ways,
+                     const std::vector<std::string> &pay_account_contexts,
                      const std::string &source);
 
    ACTION mancldeal(const symbol_code &pair, name bider, uint64_t deal_id, const std::string &reason);
 
-   ACTION paydeal(const symbol_code &pair, name bider, uint64_t deal_id, uint8_t fiat_pay_method, const std::string &fiat_account);
+   ACTION paydeal(const symbol_code &pair, name bider, uint64_t deal_id, uint64_t fiat_pay_method, uint64_t pmt_id);
 
    ACTION selfplaycoin(const symbol_code &pair, name asker, uint64_t deal_id, const std::string &reason, bool right_now);
-
-   ACTION rmappeals(const symbol_code &pair);
-   ACTION rmarborders(const symbol_code &pair);
 
    ACTION putappeal(name who,
                     const std::string &side,
@@ -110,7 +109,13 @@ public:
    ACTION rmarbiters(const symbol_code &stock);
    ACTION rmjudgers(const symbol_code &stock);
    //删除仲裁记录
+   ACTION rmappeals(const symbol_code &pair);
+   ACTION rmarborders(const symbol_code &pair);
    ACTION rmarbtasks(name arbitername);
+
+   ACTION rmjudges(const symbol_code &pair);
+   ACTION rmjudorders(const symbol_code &pair);
+   ACTION rmjudtasks(name judgername);
 
    //using hi_action = action_wrapper<"hi"_n, &otcexchange::hi>;
    //USING_ACTION(otcexchange, hi);
@@ -141,10 +146,10 @@ public:
    ACTION rmdeal(const symbol_code &pair, uint64_t id);
    ACTION rmdeals(const symbol_code &pair);
    ACTION canmodpay(name user);
-   ACTION modfeerate(name user, const symbol &stock, asset fee_rate);
    ACTION rmnotfills();
    ACTION moduserrole(name user, const symbol_code &stock, uint8_t role);
    ACTION erauserrole(name user, const symbol_code &stock, uint8_t role);
+   ACTION cleartables();
 
 private:
    //余额表历史，此表属于合约，但是scope是用户，业
@@ -188,6 +193,16 @@ private:
       });
    }
 
+   void erase_balancelogs(name user)
+   {
+      balancelog_index_t t(_self, user.value); //得到表
+      auto it = t.begin();
+      while (it != t.end())
+      {
+         it = t.erase(it);
+      }
+   }
+
    TABLE logitem
    {
       uint64_t id; //时间id
@@ -197,6 +212,15 @@ private:
    };
    using log_index_t = multi_index<"log"_n, logitem>;
    log_index_t log_;
+
+   void erase_logs()
+   {
+      auto it = log_.begin();
+      while (it != log_.end())
+      {
+         it = log_.erase(it);
+      }
+   }
 
    //仲裁池，scope是合约，主键是代币
    TABLE arbpool
@@ -226,6 +250,93 @@ private:
    using arbst_index_t = multi_index<"arbsts"_n, arbst>;
    arbst_index_t arbsts_;
 
+   //===================用户的单日统计计数,决定了用户是不是进黑名单,超过阀值了,自动进黑名单。scope是用户，主键是日期，精确到00点秒============
+   TABLE userdaystat
+   {
+      time_point_sec day;
+      name account;
+      uint32_t day_cancel_deal_num = 0; //单日取消deal的次数
+      uint32_t day_cancel_ad_num = 0;   //单日取消广告的次数
+      uint32_t day_arb_fail_num = 0;    //单日仲裁失败次数
+      std::string source{""};
+
+      uint64_t primary_key() const { return day.sec_since_epoch(); }
+   };
+
+   using userdaystat_index_t = multi_index<"userdaystats"_n, userdaystat>;
+
+   void add_cancel_deal_num_once(name who, time_point_sec when, const std::string &reason)
+   {
+      userdaystat_index_t t(_self, who.value);
+      auto it = t.find(day_start(when).sec_since_epoch());
+      if (it == t.end())
+      {
+         t.emplace(_self, [&](userdaystat &u) {
+            u.day_cancel_deal_num = 1;
+            u.source.append("|").append(reason);
+         });
+      }
+      else
+      {
+         t.modify(it, _self, [&](userdaystat &u) {
+            u.day_cancel_deal_num++;
+            u.source.append("|").append(reason);
+         });
+      }
+   }
+
+   bool can_day_deal(name who, time_point_sec when)
+   {
+      userdaystat_index_t t(_self, who.value);
+      auto it = t.find(day_start(when).sec_since_epoch());
+      bool res = true;
+      if (it != t.end() && (it->day_cancel_deal_num > 3 || it->day_arb_fail_num >= 1))
+      {
+         res = false;
+      }
+      return res;
+   }
+
+   void add_arb_fail_num_once(name who, time_point_sec when, const std::string &reason)
+   {
+      userdaystat_index_t t(_self, who.value);
+      auto it = t.find(day_start(when).sec_since_epoch());
+      if (it == t.end())
+      {
+         t.emplace(_self, [&](userdaystat &u) {
+            u.day_arb_fail_num = 1;
+            u.source.append("|").append(reason);
+         });
+      }
+      else
+      {
+         t.modify(it, _self, [&](userdaystat &u) {
+            u.day_arb_fail_num++;
+            u.source.append("|").append(reason);
+         });
+      }
+   }
+
+   void reduce_arb_fail_num_once(name who, time_point_sec when, const std::string &reason)
+   {
+      userdaystat_index_t t(_self, who.value);
+      auto it = t.find(day_start(when).sec_since_epoch());
+      if (it == t.end())
+      {
+         t.emplace(_self, [&](userdaystat &u) {
+            u.day_arb_fail_num = 0;
+            u.source.append("|").append(reason);
+         });
+      }
+      else
+      {
+         t.modify(it, _self, [&](userdaystat &u) {
+            u.day_arb_fail_num--;
+            u.source.append("|").append(reason);
+         });
+      }
+   }
+
    //用户表,scope 是一个个用户,用户名是小写
    TABLE exchangeuser
    {
@@ -251,6 +362,30 @@ private:
       uint64_t primary_key() const { return stock.raw(); }
    };
    using user_index_t = multi_index<"users"_n, exchangeuser>;
+
+   //scope 是代币，主键是用户，保存一个代币下有哪些交易员
+   TABLE userbystock
+   {
+      symbol_code stock; //
+      name account;      //
+      uint64_t primary_key() const { return account.value; }
+   };
+   using userbystock_index_t = multi_index<"userbystocks"_n, userbystock>;
+
+   void inup_userbystock(const symbol_code &stock, name account)
+   {
+      std::string str_stock = stock.to_string();
+      str_stock = lower_str(str_stock);
+      userbystock_index_t t(_self, name{str_stock}.value);
+      auto it = t.find(account.value);
+      if (it == t.end())
+      {
+         t.emplace(_self, [&](userbystock &u) {
+            u.stock = stock;
+            u.account = account;
+         });
+      }
+   }
 
    TABLE adnotfill
    {
@@ -279,12 +414,32 @@ private:
       }
    }
 
+   void erase_adnotfills()
+   {
+      adnotfill_index_t t(_self, _self.value);
+      auto it = t.begin();
+      while (it != t.end())
+      {
+         it = t.erase(it);
+      }
+   }
+
    TABLE dealnotfill
    {
       name user; //主键
       uint64_t primary_key() const { return user.value; }
    };
    using dealnotfill_index_t = multi_index<"dealnotfills"_n, dealnotfill>;
+
+   void erase_dealnotfills()
+   {
+      dealnotfill_index_t t(_self, _self.value);
+      auto it = t.begin();
+      while (it != t.end())
+      {
+         it = t.erase(it);
+      }
+   }
 
    bool check_user_deal_not_fill(name user)
    {
@@ -431,7 +586,7 @@ private:
    {
       symbol_code stock; //主键
       name account;      //EOS账户
-      uint8_t role;      //角色 1：交易用户 2.仲裁者 3.终审者 4.交易用户+仲裁者 5.交易用户+终审员
+      uint8_t role;      //角色 1：交易用户 2.仲裁者(在线，正常) 3.终审者 4.交易用户+仲裁者 5.交易用户+终审员  6.仲裁者离线 7.仲裁者进小黑屋
       time_point_sec ctime;
       time_point_sec utime;
       uint64_t primary_key() const { return stock.raw(); }
@@ -503,6 +658,20 @@ private:
    };
    using judge_index_t = multi_index<"judges"_n, judge>;
 
+   void erase_judges(const symbol_code &pair)
+   {
+
+      auto str_pair = pair.to_string();
+      str_pair = lower_str(str_pair);
+      judge_index_t t(_self, name{str_pair}.value);
+      auto it = t.begin();
+      while (it != t.end())
+      {
+         it = t.erase(it);
+      }
+      print("judges 表已经清理完成");
+   }
+
    TABLE judgeorder
    {
       uint64_t id;          //仲裁id,实际==deal id
@@ -534,6 +703,20 @@ private:
 
    using judgeorder_index_t = multi_index<"judgeorders"_n, judgeorder>;
    using itr_judgeorder_t = judgeorder_index_t::const_iterator;
+
+   void erase_judgeorders(const symbol_code &pair)
+   {
+
+      auto str_pair = pair.to_string();
+      str_pair = lower_str(str_pair);
+      judgeorder_index_t t(_self, name{str_pair}.value);
+      auto it = t.begin();
+      while (it != t.end())
+      {
+         it = t.erase(it);
+      }
+      print("judgeorders 表已经清理完成");
+   }
 
    TABLE judgetask
    {
@@ -579,6 +762,19 @@ private:
 
    /*scope是pair ,一个交易对里面的deal_id 是唯一的*/
 
+   void erase_judgetasks(name judgername)
+   {
+
+      judgetask_index_t d_(_self, judgername.value); //表名，按用户分表，不是按pair分表
+      auto it = d_.begin();
+
+      while (it != d_.end())
+      {
+         it = d_.erase(it);
+      }
+      print(judgername, "的终审任务表 clear ok");
+   }
+
    TABLE xappeal
    {
       uint64_t id;            //作为主键 =deal_id
@@ -617,6 +813,19 @@ private:
 
    using xappeal_index_t = multi_index<"xappeals"_n, xappeal>;
 
+   void erase_appeals(const symbol_code &pair)
+   {
+      auto str_pair = pair.to_string();
+      str_pair = lower_str(str_pair);
+      xappeal_index_t appeals(_self, name{str_pair}.value);
+      auto it = appeals.begin();
+      while (it != appeals.end())
+      {
+         it = appeals.erase(it);
+      }
+      print("appeals 表已经清理完成");
+   }
+
    /*scope是pair ,一个交易对里面的deal_id 是唯一的*/
    TABLE arborder
    {
@@ -633,7 +842,7 @@ private:
       asset quota;                              //终金额
       std::set<name> vec_arbiter;               //仲裁员成员
       std::map<name, uint8_t> map_person_pick;  //每个人的仲裁结果
-      std::map<name, uint64_t> map_person_task; //每个人的仲裁结果
+      std::map<name, uint64_t> map_person_task; //每个人的仲裁订单
       asset arbitrate_fee;                      //仲裁手续费,完成这个arborder仲裁员的收入
 
       uint16_t person_num;    //仲裁员人数
@@ -651,6 +860,20 @@ private:
 
    using arborder_index_t = multi_index<"arborders"_n, arborder>;
    using itr_arborder_t = arborder_index_t::const_iterator;
+
+   void erase_arborders(const symbol_code &pair)
+   {
+      require_auth(_self);
+      auto str_pair = pair.to_string();
+      str_pair = lower_str(str_pair);
+      arborder_index_t t(_self, name{str_pair}.value);
+      auto it = t.begin();
+      while (it != t.end())
+      {
+         it = t.erase(it);
+      }
+      print("arborders 表已经清理完成");
+   }
 
    ///每个人的仲裁记录就是deal了,
 
@@ -696,6 +919,19 @@ private:
                                        indexed_by<"byctime"_n, const_mem_fun<arbtask, uint64_t, &arbtask::by_ctime>>
 
                                        >;
+
+   void erase_arbtasks(name arbitername)
+   {
+
+      arbtask_index_t d_(_self, arbitername.value); //表名，按用户分表，不是按pair分表
+      auto it = d_.begin();
+
+      while (it != d_.end())
+      {
+         it = d_.erase(it);
+      }
+      print(arbitername, "的仲裁任务表 clear ok");
+   }
 
    TABLE market
    {
@@ -776,15 +1012,16 @@ private:
       int64_t maker_ask_fee_rate; //吃单的手续费率(只展示使用)
       int64_t maker_bid_fee_rate; //挂单的手续费率（只展示使用）
 
-      asset left;                         //剩余多少数量未成交
-      asset freeze;                       //冻结的stock或者money,处于正在交易中,只有卖币挂单才有值
-      asset deal_fee;                     //累计的交易手续费
-      asset deal_stock;                   //累计的交易sotck数量
-      asset deal_money;                   //累计的交易money
-      std::string source;                 //备注信息，广告订单来源
-      std::vector<uint64_t> vec_deal;     //成交明细，因为一个广告订单可以被很多人来交易
-      std::vector<uint64_t> pay_accounts; //支持的法币帐号
-      std::vector<uint8_t> pay_ways;      //支持的法币帐号
+      asset left;                                    //剩余多少数量未成交
+      asset freeze;                                  //冻结的stock或者money,处于正在交易中,只有卖币挂单才有值
+      asset deal_fee;                                //累计的交易手续费
+      asset deal_stock;                              //累计的交易sotck数量
+      asset deal_money;                              //累计的交易money
+      std::string source;                            //备注信息，广告订单来源
+      std::vector<uint64_t> vec_deal;                //成交明细，因为一个广告订单可以被很多人来交易
+      std::vector<uint64_t> pay_accounts;            //支持的法币帐号
+      std::vector<uint64_t> pay_ways;                //支持的法币帐号
+      std::vector<std::string> pay_account_contexts; //支持的法币帐号
 
       uint64_t primary_key() const { return id; }                   // primary key auto increase
       uint64_t get_secondary_user() const { return user.value; }    // sort by user name，按用户名过滤
@@ -865,6 +1102,16 @@ private:
 
                                        >;
 
+   void erase_dhs(name who)
+   {
+      deallog_index_t dh_(_self, who.value);
+      auto it = dh_.begin();
+      while (it != dh_.end())
+      {
+         it = dh_.erase(it);
+      }
+   }
+
    //此表属于合约,scope是交易对,
    TABLE deal
    {
@@ -883,29 +1130,31 @@ private:
       uint64_t maker_order_id; //对手方广告订单id
       std::string tk_nickname;
       std::string mk_nickname;
-      asset price;                            //成交价
-      asset amount;                           //成交数量
-      asset quota;                            //成交额price*amount
-      asset ask_fee;                          //收取的卖方手续费
-      asset bid_fee;                          //收取的买方手续费
-      uint8_t status;                         //成交的状态
-      std::string status_str;                 //成交的状态字符串
-      uint32_t pay_timeout;                   //支付超时时间,
-      uint64_t pay_timeout_sender_id;         //异步事物id
-      uint64_t self_playcoin_sender_id;       //异步事物id
-      name arb_failer;                        //仲裁失败方
-      name judge_failer;                      //终审失败方
-      uint64_t arb_sender_id;                 //仲裁异步事件
-      uint32_t def_cancel_time;               //初次仲裁取消，延迟取消的时间,精确到s,这段时间用户可以发起终审
-      uint32_t def_playcoin_time;             //初次仲裁通过，延迟放币的时间,精确到s，这段时间用户可以发起终审
-      std::vector<uint64_t> ask_pay_accounts; //支付方式或者支付id列表
-      std::vector<uint64_t> bid_pay_accounts; //支付方式或者支付id列表
-      std::vector<uint8_t> ask_pay_ways;      //支持的法币帐号
-      std::vector<uint8_t> bid_pay_ways;      //支持的法币帐号
-      symbol_code pair;                       //交易对
-      uint8_t fiat_pay_method;                //法币支付方式
-      std::string fiat_account;               //法币帐号,保存的是加密后的信息
-      std::string source;                     //备注信息，仲裁信息等
+      asset price;                                       //成交价
+      asset amount;                                      //成交数量
+      asset quota;                                       //成交额price*amount
+      asset ask_fee;                                     //收取的卖方手续费
+      asset bid_fee;                                     //收取的买方手续费
+      uint8_t status;                                    //成交的状态
+      std::string status_str;                            //成交的状态字符串
+      uint32_t pay_timeout;                              //支付超时时间,
+      uint64_t pay_timeout_sender_id;                    //异步事物id
+      uint64_t self_playcoin_sender_id;                  //异步事物id
+      name arb_failer;                                   //仲裁失败方
+      name judge_failer;                                 //终审失败方
+      uint64_t arb_sender_id;                            //仲裁异步事件
+      uint32_t def_cancel_time;                          //初次仲裁取消，延迟取消的时间,精确到s,这段时间用户可以发起终审
+      uint32_t def_playcoin_time;                        //初次仲裁通过，延迟放币的时间,精确到s，这段时间用户可以发起终审
+      std::vector<uint64_t> ask_pay_accounts;            //支付方式或者支付id列表
+      std::vector<uint64_t> bid_pay_accounts;            //支付方式或者支付id列表
+      std::vector<uint64_t> ask_pay_ways;                //支持的法币帐号
+      std::vector<uint64_t> bid_pay_ways;                //支持的法币帐号
+      std::vector<std::string> ask_pay_account_contexts; //支持的法币帐号
+      std::vector<std::string> bid_pay_account_contexts; //支持的法币帐号
+      symbol_code pair;                                  //交易对
+      uint64_t fiat_pay_method;                          //法币支付方式
+      std::string fiat_account;                          //法币帐号,保存的是加密后的信息
+      std::string source;                                //备注信息，仲裁信息等
 
       uint64_t primary_key() const { return id; }
       uint64_t get_secondary_user() const { return user.value; }
@@ -1113,12 +1362,40 @@ private:
 
       case DEAL_STATUS_JUD_PLAYCOIN_FINISHED:
          return DEAL_STATUS_JUD_PLAYCOIN_FINISHED_STR;
+
+      case DEAL_STATUS_PAID_WAIT_PLAYCOIN:
+         return DEAL_STATUS_PAID_WAIT_PLAYCOIN_STR;
+
+      case DEAL_STATUS_PAID_PLAYCOIN_ING:
+         return DEAL_STATUS_PAID_PLAYCOIN_ING_STR;
+
+      case DEAL_STATUS_PAID_APPEAL_ASK:
+         return DEAL_STATUS_PAID_APPEAL_ASK_STR;
+      case DEAL_STATUS_PAID_APPEAL_BID:
+         return DEAL_STATUS_PAID_APPEAL_BID_STR;
+      case DEAL_STATUS_PAID_APPEAL_ALL:
+         return DEAL_STATUS_PAID_APPEAL_ALL_STR;
+
+      case DEAL_STATUS_PAID_ARBIARATE_ING:
+         return DEAL_STATUS_PAID_ARBIARATE_ING_STR;
+      case DEAL_STATUS_PAID_ARBIARATE_CANCEL:
+         return DEAL_STATUS_PAID_ARBIARATE_CANCEL_STR;
+      case DEAL_STATUS_PAID_ARBIARATE_PALYCOIN:
+         return DEAL_STATUS_PAID_ARBIARATE_PALYCOIN_STR;
+
+      case DEAL_STATUS_PAID_JUDGING:
+         return DEAL_STATUS_PAID_JUDGING_STR;
       }
+
       return "";
    }
    inline bool is_today(uint32_t last_time)
    {
       return current_time_point().sec_since_epoch() / 86400 == last_time / 86400;
+   }
+   inline time_point_sec day_start(time_point_sec when)
+   {
+      return time_point_sec(when.sec_since_epoch() - when.sec_since_epoch() % DAY_SECONDS);
    }
 
    void log(const std::string &msg)
@@ -1191,8 +1468,10 @@ private:
    //std::pair<asset, asset> get_user_fee_rate(name user, const symbol_code &pair, uint8_t role);
    std::pair<int64_t, int64_t> get_user_fee_rate_(name user, const symbol_code &pair, uint8_t role);
    std::string get_user_nickname(name user);
+   std::string get_user_pay_accout_content(name asker, uint64_t pmt_id);
 
    asset get_fee(name user, const symbol_code &pair, asset amount, uint8_t askorbid, uint8_t role);
+   asset cal_asset( asset amount, uint32_t ratio);
    inline asset cal_fee(asset amount, int64_t fee_rate)
    {
       static auto pr4 = std::pow(10, 4);
@@ -1203,11 +1482,67 @@ private:
 
    bool isnotjudger(name user, const symbol_code &stock);
 
+   uint8_t get_userrole(name user, const symbol_code &stock);
+
    void delete_userrole(name user, const symbol_code &stock, uint8_t role);
 
    void insert_modify_userrole(name user, const symbol_code &stock, uint8_t role);
 
+   template <typename T>
+   void clear_tablebystock(const symbol_code &stock)
+   {
+      T t(_self, stock.raw());
+      auto it = t.begin();
+      while (it != t.end())
+      {
+         it = t.erase(it);
+      }
+   }
+
+   template <typename T>
+   void clear_tablebypair(const symbol_code &pair)
+   {
+      auto str_pair = pair.to_string();
+      str_pair = lower_str(str_pair);
+      T t(_self, name{str_pair}.value);
+      auto it = t.begin();
+      while (it != t.end())
+      {
+         it = t.erase(it);
+      }
+   }
+
+   template <typename T>
+   void clear_tablebyname(name who)
+   {
+
+      T t(_self, who.value);
+      auto it = t.begin();
+      while (it != t.end())
+      {
+         it = t.erase(it);
+      }
+   }
+
+   inline void def_trans_addblacklist(name cmder, name failer, deal_iter_t itr_deal, const std::string &reason)
+   {
+      transaction t{};
+      t.actions.emplace_back(
+          permission_level(cmder, name{"active"}),
+          name{PRO_TOKEN_CONTRACT_NAME},
+          name{"addblacklist"},
+          std::make_tuple(failer));
+      
+
+      t.delay_sec = DAY_SECONDS * 2; //延迟48h执行，48h发起二次终审的话，还要取消这个延长事务
+      
+      t.send(itr_deal->pay_timeout_sender_id, _self);
+   }
+
 public:
+   inline void checkinblacklist(name who)
+   {
+   }
    inline void transfer(name from,
                         name to,
                         asset quantity,
@@ -1221,6 +1556,8 @@ public:
           std::make_tuple(from, to, quantity, memo))
           .send();
    }
+
+   // cc push push action otcsystem addblacklist '["eoscngdszlgz"]' -p otcsystem
 
    /* owner: 存款人账号。
    * assset: 资产数额。
@@ -1355,3 +1692,22 @@ public:
       //dtrx.send(eosio::current_time_point().sec_since_epoch(), _self);
    }
 };
+
+namespace eosiosystem
+{
+   struct [[eosio::table, eosio::contract("eosio.system")]] user_resources
+   {
+      name owner;
+      asset net_weight;
+      asset cpu_weight;
+      int64_t ram_bytes = 0;
+
+      bool is_empty() const { return net_weight.amount == 0 && cpu_weight.amount == 0 && ram_bytes == 0; }
+      uint64_t primary_key() const { return owner.value; }
+
+      // explicit serialization macro is not necessary, used here only to improve compilation time
+      EOSLIB_SERIALIZE(user_resources, (owner)(net_weight)(cpu_weight)(ram_bytes))
+   };
+   typedef eosio::multi_index<"userres"_n, user_resources> user_resources_table;
+
+} // namespace eosiosystem

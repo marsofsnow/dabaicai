@@ -56,6 +56,31 @@ EOS6JLFKjgXaVWjJihTufhTxB8PF6hm3e4usmJhSXP1pfWcQWapX9  \
 
 
 
+zz system newaccount eosio --transfer a4  \
+EOS6JLFKjgXaVWjJihTufhTxB8PF6hm3e4usmJhSXP1pfWcQWapX9  \
+EOS6JLFKjgXaVWjJihTufhTxB8PF6hm3e4usmJhSXP1pfWcQWapX9  \
+--stake-net "10000.0000 EOS"  \
+--stake-cpu "10000.0000 EOS"  \
+--buy-ram-kbytes 8192
+
+zz system newaccount eosio --transfer a5  \
+EOS6JLFKjgXaVWjJihTufhTxB8PF6hm3e4usmJhSXP1pfWcQWapX9  \
+EOS6JLFKjgXaVWjJihTufhTxB8PF6hm3e4usmJhSXP1pfWcQWapX9  \
+--stake-net "10000.0000 EOS"  \
+--stake-cpu "10000.0000 EOS"  \
+--buy-ram-kbytes 8192
+
+zz system newaccount eosio --transfer a15  \
+EOS6JLFKjgXaVWjJihTufhTxB8PF6hm3e4usmJhSXP1pfWcQWapX9  \
+EOS6JLFKjgXaVWjJihTufhTxB8PF6hm3e4usmJhSXP1pfWcQWapX9  \
+--stake-net "10000.0000 EOS"  \
+--stake-cpu "10000.0000 EOS"  \
+--buy-ram-kbytes 8192
+
+
+
+
+
 
 #转账
 
@@ -75,6 +100,9 @@ zz push action adxio.token transfer '["adxio.token", "dabaicai","100000.0000 ADX
 zz push action adxio.token transfer '["adxio.token", "a1","10000.0000 ADX","test"]' -p adxio.token
 zz push action adxio.token transfer '["adxio.token", "a2","10000.0000 ADX","test"]' -p adxio.token
 zz push action adxio.token transfer '["adxio.token", "a3","10000.0000 ADX","test"]' -p adxio.token
+zz push action adxio.token transfer '["adxio.token", "a4","10000.0000 ADX","test"]' -p adxio.token
+zz push action adxio.token transfer '["adxio.token", "a5","10000.0000 ADX","test"]' -p adxio.token
+zz push action adxio.token transfer '["adxio.token", "a15","10000.0000 ADX","test"]' -p adxio.token
 
 
 
@@ -84,13 +112,16 @@ zz push action adxio.token transfer '["adxio.token", "android12345","10000.0000 
 zz push action adxio.token transfer '["adxio.token", "test12345123","10000.0000 ADX","test"]' -p adxio.token
 
 
-zz push action adxio.token transfer '["adxio.token", "testdfg12345","100000.0000 ADX","test"]' -p adxio.token
-zz push action adxio.token transfer '["adxio.token", "testsrt12345","100000.0000 ADX","test"]' -p adxio.token
-zz push action adxio.token transfer '["adxio.token", "aaaa11112222","100000.0000 ADX","test"]' -p adxio.token
+zz push action adxio.token transfer '["adxio.token", "bbbbbb111111","100000.0000 ADX","test"]' -p adxio.token
+zz push action adxio.token transfer '["adxio.token", "bbbbbb111112","100000.0000 ADX","test"]' -p adxio.token
+zz push action adxio.token transfer '["adxio.token", "bbbbbb111113","100000.0000 ADX","test"]' -p adxio.token
+zz push action adxio.token transfer '["adxio.token", "bbbbbb111114","100000.0000 ADX","test"]' -p adxio.token
+zz push action adxio.token transfer '["adxio.token", "bbbbbb111115","100000.0000 ADX","test"]' -p adxio.token
 
 zz push action eosio.token transfer '["eosio.token", "dabaicai","10000.0000 EOS","test"]' -p eosio.token
 zz push action eosio.token transfer '["eosio.token", "zhouhao","10000.0000 EOS","test"]' -p eosio.token
 zz push action eosio.token transfer '["eosio.token", "otcexchange","10000.0000 EOS","test"]' -p eosio.token
+zz push action eosio.token transfer '["eosio.token", "ssssss111111","10000.0000 EOS","test"]' -p eosio.token
 
 
 zz get table adxio.token dabaicai accounts
@@ -275,6 +306,16 @@ zz get table adxio.token dabaicai accounts
   zz  push action otcexchange regarbiter '["a1","ADX","1000.0000 ADX",60,82800,"656717520@qq.com","1234"]' -p a1@active 
   zz  push action otcexchange regarbiter '["a2","ADX","2000.0000 ADX",120,82800,"656717520@qq.com","1234"]' -p a2@active 
   zz  push action otcexchange regarbiter '["a3","ADX","3000.0000 ADX",180,82800,"656717520@qq.com","1234"]' -p a3@active 
+  zz  push action otcexchange regarbiter '["a4","ADX","3000.0000 ADX",180,82800,"656717520@qq.com","1234"]' -p a4@active 
+  zz  push action otcexchange regarbiter '["a5","ADX","3000.0000 ADX",180,82800,"656717520@qq.com","1234"]' -p a5@active 
+  zz  push action otcexchange regarbiter '["a16","ADX","3000.0000 ADX",180,82800,"656717520@qq.com","1234"]' -p a16@active 
+
+
+  zz  push action otcexchange regarbiter '["bbbbbb111111","ADX","1000.0000 ADX",180,82800,"656717520@qq.com","1234"]' -p bbbbbb111111@active 
+  zz  push action otcexchange regarbiter '["bbbbbb111112","ADX","2000.0000 ADX",280,82800,"656717520@qq.com","1234"]' -p bbbbbb111112@active 
+  zz  push action otcexchange regarbiter '["bbbbbb111113","ADX","3000.0000 ADX",380,82800,"656717520@qq.com","1234"]' -p bbbbbb111113@active 
+  zz  push action otcexchange regarbiter '["bbbbbb111114","ADX","4000.0000 ADX",480,82800,"656717520@qq.com","1234"]' -p bbbbbb111114@active 
+  zz  push action otcexchange regarbiter '["bbbbbb111115","ADX","5000.0000 ADX",580,82800,"656717520@qq.com","1234"]' -p bbbbbb111115@active 
   zz  push action otcexchange unregarbiter '["a1","ADX","XXXX"]' -p a1@active 
   zz get table otcexchange adx  arbiters
   zz get table otcexchange a2  arbers
@@ -343,7 +384,7 @@ ACTION judgedeal(name judger, const symbol_code &pair, uint64_t deal_id, uint8_t
 
 
 
-zz  get table  otcexchange adxcny deals --key-type i64 --index 1 -L 14 -U 14;
+zz  get table  otcexchange adxcny deals --key-type i64 --index 1 -L 4 -U 4;
 
 
 zz  get table  otcexchange a1 arbtasks --key-type i64 --index 2 -L 1 -U 1;
@@ -356,10 +397,14 @@ zz  get table  otcexchange a2 arbtasks --key-type i64 --index 2  -U 1
   
   zz  push action otcexchange rmnotfills '[]' -p otcexchange
 
-  zz  get table  otcexchange adxcny xappeals --key-type i64 --index 1 -L 3 -U 3;
+  zz  get table  otcexchange adxcny xappeals --key-type i64 --index 1 -L 4 -U 4;
 
 
-  zz get table otcexchange  adxcny arborders --key-type i64 --index 1 -L 0 -U 0;
+  zz get table otcexchange  adxcny arborders --key-type i64 --index 1 -L 4 -U 4;
+  zz  get table  otcexchange adxcny deals --key-type i64 --index 1 -L 13 -U 13;
+
+
+  zz  get table  otcexchange adxcny judges --key-type i64 --index 1 -L 3 -U 3
 
 
 ACTION otcexchange::putappeal(name who,
@@ -393,3 +438,30 @@ cleos wallet private_keys -n lgz
 
 [root@localhost wallets]#  cleos wallet private_keys -n default
 PW5JL3SP3tG42sch9z5Li9eaYMM96QXA5z6b23mqd5nBpdMKstsAj
+
+
+
+
+
+    #3.进行到待放币状态
+    zz  push action otcexchange puttkorder '["ADXCNY","ask","dabaicai","50.00 CNY","10.0000 ADX",0,[1,2],[1],"taker是卖币吃单"]' -p dabaicai@active
+    zz  push action otcexchange paydeal '["ADXCNY","zhouhao",6,1,"银行卡付钱"]' -p zhouhao@active
+
+    #买家发起申诉zhouhao，买家已经付款，
+    zz  push action otcexchange  putappeal '["zhouhao","bid","ADXCNY",6,["18588250437","656717520@qq.com"],"卖家不放币","买家已经支付",["http://zhongyingying.qicp.io:28080/ipfs/QmcnSL6oApFVYDb4wmUD5XLxxBzFW2H51f2Sdu3QjcFZqA"],["url"],"买家发起申诉"]' -p zhouhao
+    
+    #a1 a2 a3 都仲裁放币
+
+    zz  push action otcexchange  arbdeal '["a1","ADXCNY",6,2,"买家已付款，应该放币"]' -p a1
+    zz  push action otcexchange  arbdeal '["a2","ADXCNY",6,2,"买家已付款，应该放币"]' -p a2
+    zz  push action otcexchange  arbdeal '["a3","ADXCNY",6,2,"买家已付款，应该放币"]' -p a3
+
+    #失败方发起终审
+    zz  push action otcexchange  putjudge '["dabaicai","ADXCNY",3,["18588250437","656717520@qq.com"],"买家其实没有付款","买家作弊",["http://zhongyingying.qicp.io:28080/ipfs/QmcnSL6oApFVYDb4wmUD5XLxxBzFW2H51f2Sdu3QjcFZqA"],["url"],"卖家发起终审"]' -p dabaicai
+    #终审员终审
+    zz  push action otcexchange judgedeal '["otcexchange","ADXCNY",3,2,"终审卖方不放币，是恶意仲裁"]' -p otcexchange
+    zz  push action otcexchange moddealss '["ADXCNY",4,31"人工修正状态"]' -p otcexchange
+
+
+
+    "source": "huabinliang2 bid 吃单:wait pay|买方huabinliang2已支付,payed,wait playcoin|huabinliang2发起申诉:bider appeal|第一个仲裁员bbbbbb111112仲裁:arbiarating|共识取消放币:bbbbbb111114仲裁:arbiarate cancel playcoin|arb deal cancel"
