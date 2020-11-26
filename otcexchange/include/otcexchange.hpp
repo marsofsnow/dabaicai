@@ -318,6 +318,7 @@ private:
       {
          t.emplace(_self, [&](userdaystat &u) {
             u.day = day;
+            ;
             u.account = who;
             if (kind == EXCHANGE)
             {
