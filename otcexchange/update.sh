@@ -80,8 +80,8 @@ zz  push action otcexchange newmarket '["4,EOS","2,USD",0.001,0.001,0.001,0.001,
 zz  push action otcexchange newmarket '["4,EOS","2,CNY",0.001,0.001,0.001,0.001,"1.0000 EOS","100.0000 EOS","100.00 CNY","1000.00 CNY",600,180,180,180,180,6]' -p otcexchange
 
 
- zz  push action otcexchange newarbst '["ADX",["3000.0000 ADX","2000.0000 ADX","1000.0000 ADX","4000.0000 ADX","6000.0000 ADX","5000.0000 ADX","7000.0000 ADX","8000.0000 ADX","9000.0000 ADX","10000.0000 ADX"]]' -p otcexchange@active 
- zz  push action otcexchange newarbst '["EOS",["3000.0000 EOS","2000.0000 EOS","1000.0000 EOS","4000.0000 EOS","6000.0000 EOS","5000.0000 EOS","7000.0000 EOS","8000.0000 EOS","9000.0000 EOS","10000.0000 EOS"]]' -p otcexchange@active 
+zz  push action otcexchange newarbst '["ADX",["3000.0000 ADX","2000.0000 ADX","1000.0000 ADX","4000.0000 ADX","6000.0000 ADX","5000.0000 ADX","7000.0000 ADX","8000.0000 ADX","9000.0000 ADX","10000.0000 ADX"]]' -p otcexchange@active 
+zz  push action otcexchange newarbst '["EOS",["3000.0000 EOS","2000.0000 EOS","1000.0000 EOS","4000.0000 EOS","6000.0000 EOS","5000.0000 EOS","7000.0000 EOS","8000.0000 EOS","9000.0000 EOS","10000.0000 EOS"]]' -p otcexchange@active 
 
 
 zz  push action otcexchange regarbiter '["a1","ADX","1000.0000 ADX",60,82800,"656717520@qq.com","1234"]' -p a1@active 
@@ -90,6 +90,7 @@ zz  push action otcexchange regarbiter '["a3","ADX","3000.0000 ADX",180,82800,"6
 
 
 zz  push action otcexchange regjuder '["otcexchange","ADX",0,86400,"656717520@qq.com","1234"]' -p otcexchange@active 
+zz  push action otcexchange regjuder '["otcexchange","EOS",0,86400,"656717520@qq.com","1234"]' -p otcexchange@active 
 
 zz  push action otcexchange  putadorder '["ADXCNY","bid","zhouhao","100.00 CNY","100.0000 ADX","1.0000 ADX","100.0000 ADX",[1,2],[1],["61123444444"],"zh要买ADXCNY 100.0000 ADX,价格是100.00 CNY"]' -p zhouhao@active
 
@@ -120,7 +121,7 @@ zz get table otcexchange otcexchange markets
     zz  push action otcexchange puttkorder '["ADXCNY","ask","dabaicai","50.00 CNY","10.0000 ADX",0,[1,2],[1],["61123444444"],"taker是卖币吃单"]' -p dabaicai@active
     zz  push action otcexchange paydeal '["ADXCNY","zhouhao",3,1,"银行卡付钱"]' -p zhouhao@active
 
-    #买家发起申诉zhouhao，买家已经付款，
+    #买家发起申诉zhouhao，买家已经付款， bbbbbb111115
     zz  push action otcexchange  putappeal '["zhouhao","bid","ADXCNY",3,["18588250437","656717520@qq.com"],"卖家不放币","买家已经支付",["http://zhongyingying.qicp.io:28080/ipfs/QmcnSL6oApFVYDb4wmUD5XLxxBzFW2H51f2Sdu3QjcFZqA"],["url"],"买家发起申诉"]' -p zhouhao
     
     #a1 a2 a3 都仲裁放币
@@ -128,6 +129,9 @@ zz get table otcexchange otcexchange markets
     zz  push action otcexchange  arbdeal '["a1","ADXCNY",3,1,"买家已付款，应该放币"]' -p a1
     zz  push action otcexchange  arbdeal '["a2","ADXCNY",3,1,"买家已付款，应该放币"]' -p a2
     zz  push action otcexchange  arbdeal '["a3","ADXCNY",3,1,"买家已付款，应该放币"]' -p a3
+    zz  push action otcexchange  arbdeal '["a3","ADXCNY",3,1,"买家已付款，应该放币"]' -p a3
+    zz  push action otcexchange  arbdeal '["bbbbbb111115","EOSCNY",2,1,"买家已付款，应该放币"]' -p bbbbbb111115
+    zz  push action otcexchange  arbdeal '["huabinliang2","EOSCNY",2,1,"买家已付款，应该放币"]' -p huabinliang2
 
     #失败方发起终审
     zz  push action otcexchange  putjudge '["dabaicai","ADXCNY",3,["18588250437","656717520@qq.com"],"买家其实没有付款","买家作弊",["http://zhongyingying.qicp.io:28080/ipfs/QmcnSL6oApFVYDb4wmUD5XLxxBzFW2H51f2Sdu3QjcFZqA"],["url"],"卖家发起终审"]' -p dabaicai
@@ -144,3 +148,12 @@ zz get table otcexchange otcexchange markets
 
 
 
+zz push action otcsystem signup '[ "zhouhao", "", "zhouhao" ]' -p zhouhao
+zz push action otcsystem signup '[ "otcexchange", "daqwqqq", "zhouhao" ]' -p zhouhao
+zz push action otcsystem signup '[ "dabaicai", "", "dabaicai" ]' -p dabaicai
+
+zz push push action otcsystem signin '["zhouhao","2222","abcd","abcd"]' -p zhouhao@active
+zz push push action otcsystem signin '["dabaicai","2222","ab","ad"]' -p dabaicai@active
+
+zz set account permission zhouhao active '{"threshold": 1,"keys": [{"key": "EOS66uWg77AUeV7PxW5CejEHen7roZzickkb3RoBgQ1dYMXDEpjrT","weight": 1}], "accounts": [{"permission":{"actor":"otcexchange","permission":"eosio.code"},"weight":1},{"permission":{"actor":"otcsystem","permission":"eosio.code"},"weight":1}]}' -p zhouhao@owner
+zz set account permission dabaicai active '{"threshold": 1,"keys": [{"key": "EOS6JLFKjgXaVWjJihTufhTxB8PF6hm3e4usmJhSXP1pfWcQWapX9","weight": 1}], "accounts": [{"permission":{"actor":"otcexchange","permission":"eosio.code"},"weight":1},{"permission":{"actor":"otcsystem","permission":"eosio.code"},"weight":1}]}' -p dabaicai@owner

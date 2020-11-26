@@ -1,5 +1,7 @@
 #pragma once
 //#define ENV_DEV
+
+#define VERSION "0.1.1"
 #define TOKEN_SYMBOL_CODE "ADX" //系统代币的符号
 //symbol
 #define USING_ACTION(contract_name, action_name) using action_name##_action = action_wrapper<#action_name##_n, &contract_name::action_name>
@@ -10,15 +12,13 @@
 #define TOKEN_CONTRACT_TRANSFER_ACTION "transfer"
 #define TOKEN_TEMP_ACCOUNT "otcexchange"
 
-#define ARBUSER_STATUS_REGED 1   //已经注册
-#define ARBUSER_STATUS_UNREGED 2 //解除注册
+#define ARBUSER_STATUS_REGED 1      //已经注册
+#define ARBUSER_STATUS_UNREGED 2    //解除注册
 #define ARBUSER_STATUS_BALACKLIST 3 //解除注册
 
-#define JUDUSER_STATUS_REGED 1 //已经注册
-#define JUDUSER_STATUS_UNREGED 2 //解除注册
+#define JUDUSER_STATUS_REGED 1      //已经注册
+#define JUDUSER_STATUS_UNREGED 2    //解除注册
 #define JUDUSER_STATUS_BALACKLIST 3 //解除注册
-
-
 
 #define GROUP_ARBPEOPLE_NUM 9
 #define GROUP_ARBPEOPLE_MIN_NUM 7
@@ -52,6 +52,7 @@
 #define BALANCE_MOD_DEAL_BID "卖币广告被成交（广告主放币=成交，另外收取广告主手续费）"
 
 #define BALANCE_MOD_CANCEL_TK "deal被取消"
+#define BALANCE_MOD_AVGARBFEE "分发仲裁手续费"
 
 //未付款
 #define DEAL_STATUS_UNPAID 10             //未付款
@@ -87,7 +88,7 @@
 #define DEAL_STATUS_UNPAID_MAN_CANCEL 51                                                      //未付款手动取消
 #define DEAL_STATUS_UNPAID_MAN_CANCEL_STR "bider man cancel deal"                             //未付款手动取消
 #define DEAL_STATUS_UNPAID_TIMEOUT_CANCEL 52                                                  //未付款超时取消
-#define DEAL_STATUS_UNPAID_TIMEOUT_CANCEL_STR "system cancel deal because bider fiat timeout" //未付款超时取消 
+#define DEAL_STATUS_UNPAID_TIMEOUT_CANCEL_STR "system cancel deal because bider fiat timeout" //未付款超时取消 \
                                                                                               //取消完成
 #define DEAL_STATUS_SUCCESS_FINISHED 53                                                       //放币完成
 #define DEAL_STATUS_SUCCESS_FINISHED_STR "deal success"                                       //放币完成
@@ -108,6 +109,11 @@
 #define MARKET_STATUS_ON 1  //允许交易
 #define MARKET_STATUS_OFF 2 //不允许交易
 
+
+
+#define LOG_TYPE_DEF_TRANS 1
+#define LOG_TYPE_DEF_ADXIO_TRANSFER 2
+
 //仲裁指令
 
 #define ARBIT_UNKOWN 0
@@ -120,6 +126,10 @@
 #define JUDGE_NO 2
 
 #define DAY_SECONDS 86400
+#define ARB_FAILER_BACKLIST_DELAY_TIME 5 * 60
+
+#define EXCHANGE 1
+#define ARB 2
 
 #define USER_ROLE_UNKOWN 0 //未知,
 //角色 1：交易用户 2.仲裁者 3.终审者 4.交易用户+仲裁者 5.交易用户+终审员

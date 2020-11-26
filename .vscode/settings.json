@@ -98,5 +98,7 @@
     },
     "C_Cpp.errorSquiggles": "Enabled",
     "files.autoSave": "afterDelay",
-    "files.autoSaveDelay": 3000
+    "files.autoSaveDelay": 3000,
+    "editor.formatOnType": true,
+    "editor.formatOnSave": true
 }

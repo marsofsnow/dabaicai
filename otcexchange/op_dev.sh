@@ -117,10 +117,13 @@ zz push action adxio.token transfer '["adxio.token", "bbbbbb111112","100000.0000
 zz push action adxio.token transfer '["adxio.token", "bbbbbb111113","100000.0000 ADX","test"]' -p adxio.token
 zz push action adxio.token transfer '["adxio.token", "bbbbbb111114","100000.0000 ADX","test"]' -p adxio.token
 zz push action adxio.token transfer '["adxio.token", "bbbbbb111115","100000.0000 ADX","test"]' -p adxio.token
+zz push action adxio.token transfer '["adxio.token", "ssssss111111","100000.0000 EOS","test"]' -p adxio.token
+zz push action adxio.token transfer '["adxio.token", "otcexchange","100000.0000 EOS","test"]' -p adxio.token
 
 zz push action eosio.token transfer '["eosio.token", "dabaicai","10000.0000 EOS","test"]' -p eosio.token
 zz push action eosio.token transfer '["eosio.token", "zhouhao","10000.0000 EOS","test"]' -p eosio.token
 zz push action eosio.token transfer '["eosio.token", "otcexchange","10000.0000 EOS","test"]' -p eosio.token
+zz push action eosio.token transfer '["eosio.token", "ssssss111111","10000.0000 EOS","test"]' -p eosio.token
 zz push action eosio.token transfer '["eosio.token", "ssssss111111","10000.0000 EOS","test"]' -p eosio.token
 
 
@@ -372,6 +375,7 @@ ACTION putappeal(name who,
  zz  push action otcexchange  arbdeal '["a1","ADXCNY",7,1,"买家已付款，应该放币"]' -p a1
  zz  push action otcexchange  arbdeal '["a2","ADXCNY",7,1,"买家已付款，应该放币"]' -p a2
  zz  push action otcexchange  arbdeal '["a3","ADXCNY",7,1,"买家已付款，应该放币"]' -p a3
+ zz  push action otcexchange  arbdeal '["bbbbbb111115","EOSCNY",2,1,"应该放币"]' -p bbbbbb111115
  zz  push action otcexchange putjudge '["dabaicai","ADXCNY",7,"卖家上诉"]' -p dabaicai
  
     ACTION putjudge(name failer,

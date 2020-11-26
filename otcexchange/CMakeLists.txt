@@ -3,6 +3,7 @@ include(ExternalProject)
 if(EOSIO_CDT_ROOT STREQUAL "" OR NOT EOSIO_CDT_ROOT)
    find_package(eosio.cdt)
 endif()
+message("EOSIO_CDT_ROOT:",${EOSIO_CDT_ROOT})
 
 ExternalProject_Add(
    otcexchange_project

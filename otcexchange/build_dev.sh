@@ -2,11 +2,17 @@ if [ ! -d build ]; then
   mkdir -p build;
 fi
 cd ./build
-cmake ..
-make -j8
+cmake -DCMAKE_BUILD_TYPE='Release' \
+      -DCMAKE_CXX_COMPILER='clang++-10' \
+      -DCMAKE_C_COMPILER='clang-10' \
+      -DLLVM_DIR='/usr/lib/llvm-10/lib/cmake/llvm'  ..
+make -j4
 cd ..
 
 zz='/usr/opt/eosio/2.0.7/bin/cleos -v --url http://zhongyingying.qicp.io:38000 --wallet-url http://zhongyingying.qicp.io:38001'
+## zz='/usr/opt/eosio/2.0.4/bin/cleos -v --url http://zhongyingying.qicp.io:38000 --wallet-url http://zhongyingying.qicp.io:38001'
+
+
 
 
 
@@ -35,4 +41,5 @@ ${zz} set account permission a2 active '{"threshold": 1,"keys": [{"key": "EOS6JL
 ${zz} set account permission a3 active '{"threshold": 1,"keys": [{"key": "EOS6JLFKjgXaVWjJihTufhTxB8PF6hm3e4usmJhSXP1pfWcQWapX9","weight": 1}], "accounts": [{"permission":{"actor":"otcexchange","permission":"eosio.code"},"weight":1},{"permission":{"actor":"otcsystem","permission":"eosio.code"},"weight":1}]}' -p a3@owner
 
 ${zz}  get table otcexchange otcexchange markets
+
 

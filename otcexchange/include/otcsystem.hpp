@@ -11,8 +11,6 @@
 
 #include <string>
 
-
-
 namespace otcsystem
 {
 
@@ -82,16 +80,15 @@ namespace otcsystem
     static constexpr uint8_t trx_type_bonus = 0x05;    // 仲裁奖金
     static constexpr uint8_t trx_type_rebate = 0x06;   // 返佣
 
-    // ontransfer函数参数
-    struct transfer_t
+    struct [[eosio::table]] currency_stats
     {
-        name from;
-        name to;
-        asset quantity;
-        string memo;
+        asset supply;
+        asset max_supply;
+        name issuer;
 
-        EOSLIB_SERIALIZE(transfer_t, (from)(to)(quantity)(memo))
+        uint64_t primary_key() const { return supply.symbol.code().raw(); }
     };
+    typedef eosio::multi_index<"stat"_n, currency_stats> stats;
 
     /******************************************** sys ********************************************/
     struct [[eosio::table("sysconfig"), eosio::contract("otcsystem")]] sys_config
@@ -277,7 +274,7 @@ namespace otcsystem
     struct [[eosio::table, eosio::contract("otcsystem")]] payment
     {
         uint64_t pmt_id;        // 支付方式ID
-        uint32_t pmt_type = 0;  // 支付方式类型
+        uint64_t pmt_type = 0;  // 支付方式类型
         bool is_actived = true; // 是否激活
         string ciphertext;      // 付款方式密文
 
@@ -297,14 +294,14 @@ namespace otcsystem
     struct [[eosio::table, eosio::contract("otcsystem")]] user
     {
         name owner;                           // 账号
-        name admin;                           // 团队管理员账号
         string nickname;                      // 昵称
         uint8_t user_type = user_type_normal; // 0: 普通用户 1: 返佣管理员
-        uint32_t pmts_type = 0;               // 收款方式
+        uint64_t pmts_type = 0;               // 收款方式
         time_point signup_time;               // 注册时间
 
-        name inviter;       // 邀请人
-        string invite_code; // 邀请码
+        name admin;             // 团队管理员账号
+        name inviter;           // 邀请人
+        time_point invite_time; // 邀请时间
 
         uint32_t rebate_rate = 0;   // 返佣比率
         uint32_t referral_rate = 0; // 下线返佣比率
@@ -317,12 +314,12 @@ namespace otcsystem
         uint64_t by_admin() const { return admin.value; }
         uint64_t by_type() const { return user_type; }
 
-        EOSLIB_SERIALIZE(user, (owner)(admin)(nickname)(user_type)(pmts_type)(signup_time)(inviter)(invite_code)(rebate_rate)(referral_rate)(direct_referrals)(total_referrals))
+        EOSLIB_SERIALIZE(user, (owner)(nickname)(user_type)(pmts_type)(signup_time)(admin)(inviter)(invite_time)(rebate_rate)(referral_rate)(direct_referrals)(total_referrals))
     };
 
     struct [[eosio::table, eosio::contract("otcsystem")]] team
     {
-        symbol symbol;                  // 代币符号
+        symbol_code symbol;             // 代币符号
         uint32_t maker_ask = 0;         // 挂单卖币费率
         uint32_t maker_bid = 0;         // 挂单买币费率
         uint32_t taker_ask = 0;         // 吃单卖币费率
@@ -330,10 +327,12 @@ namespace otcsystem
         uint32_t price_limit_upper = 0; // 价格上限偏离值
         uint32_t price_limit_lower = 0; // 价格下限偏离值
 
-        uint64_t primary_key() const { return symbol.code().raw(); }
+        uint64_t primary_key() const { return symbol.raw(); }
 
         EOSLIB_SERIALIZE(team, (symbol)(maker_ask)(maker_bid)(taker_ask)(taker_bid)(price_limit_upper)(price_limit_lower))
     };
+
+    typedef std::vector<string> vtsring;
 
     struct [[eosio::table, eosio::contract("otcsystem")]] apply_t
     {
@@ -341,6 +340,7 @@ namespace otcsystem
         uint32_t rebate_rate = 0; // 申请返佣比例
         uint32_t team_users = 0;  // 预计团队人数
         string prefix_nickname;   // 昵称前辍
+        vtsring symbol_codes;     // 代币符号
 
         uint64_t state = apply_state_applying; // 0: 申请中 1: 已批准 2: 已拒绝
         string request;                        // 申请说明
@@ -351,7 +351,7 @@ namespace otcsystem
         uint64_t primary_key() const { return owner.value; }
         uint64_t by_state() const { return state; }
 
-        EOSLIB_SERIALIZE(apply_t, (owner)(rebate_rate)(team_users)(prefix_nickname)(state)(request)(reply)(apply_time)(approve_time))
+        EOSLIB_SERIALIZE(apply_t, (owner)(rebate_rate)(team_users)(prefix_nickname)(symbol_codes)(state)(request)(reply)(apply_time)(approve_time))
     };
 
     typedef eosio::multi_index<"users"_n, user,
@@ -369,32 +369,35 @@ namespace otcsystem
     /******************************************* oracle *******************************************/
     struct [[eosio::table, eosio::contract("otcsystem")]] forexrate
     {
-        symbol_code money;      // 法币符号
-        uint64_t boc_rate;      // 中行折算价(美元兑换汇率)
-        time_point update_time; // 更新时间
+        symbol_code money;       // 外币符号
+        double rate;             // 美元兑换比率
+        double price;            // 中行人民币折算价
+        string label;            // 中文名称
+        time_point release_time; // 发布时间
+        time_point update_time;  // 更新时间
 
         uint64_t primary_key() const { return money.raw(); }
 
-        EOSLIB_SERIALIZE(forexrate, (money)(boc_rate)(update_time))
+        EOSLIB_SERIALIZE(forexrate, (money)(rate)(price)(label)(release_time)(update_time))
     };
 
     struct [[eosio::table, eosio::contract("otcsystem")]] market
     {
         symbol_code pair;       // 交易对
-        symbol_code money;      // 法币符号
-        symbol_code stock;      // 代币符号
-        uint64_t price;         // 代币价格
+        symbol stock;           // 代币符号
+        symbol money;           // 法币符号
+        asset price;            // 代币价格
         time_point update_time; // 更新时间
 
         uint64_t primary_key() const { return pair.raw(); }
 
-        EOSLIB_SERIALIZE(market, (pair)(money)(stock)(price)(update_time))
+        EOSLIB_SERIALIZE(market, (pair)(stock)(money)(price)(update_time))
     };
 
-    typedef eosio::multi_index<"forexrates"_n, forexrate> forexrate_table;
+    typedef eosio::multi_index<"frxrates"_n, forexrate> forexrate_table;
     typedef eosio::multi_index<"markets"_n, market> market_table;
 
-    /******************************************* action *******************************************/
+    /***************************************** action param *****************************************/
     struct [[eosio::table, eosio::contract("otcsystem")]] rfrlrate
     {
         name referral; // 下线账号
@@ -403,7 +406,19 @@ namespace otcsystem
         EOSLIB_SERIALIZE(rfrlrate, (referral)(rate))
     };
 
+    struct [[eosio::table, eosio::contract("otcsystem")]] frxrate
+    {
+        symbol_code money;     // 外币符号
+        double rate;           // 美元兑换比率
+        double price;          // 中行人民币折算价
+        string label;          // 中文名称
+        uint32_t release_time; // 发布时间
+
+        EOSLIB_SERIALIZE(frxrate, (money)(rate)(price)(label)(release_time))
+    };
+
     typedef std::vector<rfrlrate> vtrfrlrate;
+    typedef std::vector<frxrate> vtfrxrate;
 
     /******************************************* otcsystem *******************************************/
     class [[eosio::contract("otcsystem")]] otcsystem : public contract
@@ -428,6 +443,7 @@ namespace otcsystem
         template <typename T>
         void erase_table(T & table);
 
+        const currency_stats &get_currency_stats(const symbol_code &sym_code);
         void open_account(const name &owner, const symbol &symbol);
         void sub_balance(const name &owner, const asset &amount);
         void add_balance(const name &owner, const asset &amount);
@@ -458,7 +474,7 @@ namespace otcsystem
         void check_levels(const name &inviter);
         void check_prefix(const string &prefix_nickname);
 
-        void add_team_symbol(const name &admin, const symbol &symbol);
+        void add_team_symbol(const name &admin, const symbol_code &symbol);
 
         void update_referrals_out(const name &proposer);
         void update_referrals_in(const name &owner, const name &inviter);
@@ -470,15 +486,13 @@ namespace otcsystem
         asset pay_rebate(const name &payer, const asset &fee);
 
     public:
-        void ontransfer(const struct transfer_t &trans);
-
         otcsystem(name s, name code, datastream<const char *> ds);
         ~otcsystem();
 
         // SYS
         [[eosio::action]] void cleartable(const name &table);
         [[eosio::action]] void clearalltable();
-        [[eosio::action]] void setpkgurl(const string &pkg_url);
+        [[eosio::on_notify("adxio.token::transfer")]] void ontransfer(name from, name to, asset quantity, std::string memo);
 
         // 资产
         [[eosio::action]] void open(const name &owner, const symbol_code &sym_code);
@@ -508,7 +522,7 @@ namespace otcsystem
         [[eosio::action]] void modpayment(const name &owner, uint32_t pmt_id, bool is_actived, const string &pmt_ciphertext);
 
         // 返佣
-        [[eosio::action]] void apply(const name &owner, double rebate_rate, uint32_t team_users, const string &prefix_nickname, const string &comment);
+        [[eosio::action]] void apply(const name &owner, double rebate_rate, uint32_t team_users, const string &prefix_nickname, const vtsring &symbol_codes, const string &comment);
         [[eosio::action]] void approve(const name &proposer, uint8_t result, const string &comment);
         [[eosio::action]] void moddefrate(const name &owner, double rebate_rate);
         [[eosio::action]] void modrfrlrate(const name &owner, const name &referral, double rebate_rate);
@@ -517,12 +531,15 @@ namespace otcsystem
         [[eosio::action]] void modfeerate(const name &owner, const symbol_code &sym_code, double maker_ask, double maker_bid);
 
         // 汇率
-        [[eosio::action]] void updaterate(const symbol_code &money, double boc_rate);
-        [[eosio::action]] void deleterate(const symbol_code &money);
+        [[eosio::action]] void addfrxrate(const symbol_code &money, const string &label);
+        [[eosio::action]] void delfrxrate(const symbol_code &money);
+        [[eosio::action]] void modfrxrate(const symbol_code &money, double rate, double price, const string &label, uint32_t release_time);
+        [[eosio::action]] void modfrxrates(const vtfrxrate &vfr);
+        [[eosio::action]] void modmarket(const symbol &stock, const symbol &money, asset price);
+        [[eosio::action]] void delmarket(const symbol_code &stock, const symbol_code &money);
 
         using cleartable_action = eosio::action_wrapper<"cleartable"_n, &otcsystem::cleartable>;
         using clearalltable_action = eosio::action_wrapper<"clearalltable"_n, &otcsystem::clearalltable>;
-        using setpkgurl_action = eosio::action_wrapper<"setpkgurl"_n, &otcsystem::setpkgurl>;
         using open_action = eosio::action_wrapper<"open"_n, &otcsystem::open>;
         using deposit_action = eosio::action_wrapper<"deposit"_n, &otcsystem::deposit>;
         using withdraw_action = eosio::action_wrapper<"withdraw"_n, &otcsystem::withdraw>;
@@ -549,7 +566,11 @@ namespace otcsystem
         using modrfrlrates_action = eosio::action_wrapper<"modrfrlrates"_n, &otcsystem::modrfrlrates>;
         using modpricelmt_action = eosio::action_wrapper<"modpricelmt"_n, &otcsystem::modpricelmt>;
         using modfeerate_action = eosio::action_wrapper<"modfeerate"_n, &otcsystem::modfeerate>;
-        using updaterate_action = eosio::action_wrapper<"updaterate"_n, &otcsystem::updaterate>;
-        using deleterate_action = eosio::action_wrapper<"deleterate"_n, &otcsystem::deleterate>;
+        using addfrxrate_action = eosio::action_wrapper<"addfrxrate"_n, &otcsystem::addfrxrate>;
+        using delfrxrate_action = eosio::action_wrapper<"delfrxrate"_n, &otcsystem::delfrxrate>;
+        using moddfrxrate_action = eosio::action_wrapper<"modfrxrate"_n, &otcsystem::modfrxrate>;
+        using modfrxrates_action = eosio::action_wrapper<"modfrxrates"_n, &otcsystem::modfrxrates>;
+        using modmarket_action = eosio::action_wrapper<"modmarket"_n, &otcsystem::modmarket>;
+        using delmarket_action = eosio::action_wrapper<"delmarket"_n, &otcsystem::delmarket>;
     };
 } // namespace otcsystem
