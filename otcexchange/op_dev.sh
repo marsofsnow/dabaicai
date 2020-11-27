@@ -13,6 +13,8 @@ Created new private key with a public key of: "EOS7nLxFxsjRPX2x9tyCEoEcCqFntn7pc
 zz wallet create_key -n lgz
 Created new private key with a public key of: "EOS6JLFKjgXaVWjJihTufhTxB8PF6hm3e4usmJhSXP1pfWcQWapX9"
 
+zz wallet  import  --private-key 5K8vP5bHhfyATt5kkM8H87FHgkpEeaYT2u3SFHpvQV37ksyzLfr -n default
+
 
 #2创建用户
 zz system newaccount eosio --transfer zhouhao  \
@@ -472,4 +474,12 @@ PW5JL3SP3tG42sch9z5Li9eaYMM96QXA5z6b23mqd5nBpdMKstsAj
 
 
     zz get table otcexchange  adx arbpools
+     zz get table otcexchange otcexchange sendid -r
+    zz get table otcexchange bbbbbb111114  balancelogs
     zz  push action otcexchange defavgarbfee '[]' -p otcexchange
+    zz  push action otcexchange clearbpools '[]' -p otcexchange
+    zz  push action otcexchange avgarbfee '["2020-11-27T00:00:10"]' -p otcexchange
+    zz  push action otcexchange getemailcode '["a15","656717520@qq.com"]' -p a15
+    // bbbbbb111112
+
+  zz get table otcexchange a15  emailcodes

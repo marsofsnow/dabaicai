@@ -163,12 +163,13 @@ public:
    ACTION rmjudges(const symbol_code &pair);
    ACTION rmjudorders(const symbol_code &pair);
    ACTION rmjudtasks(name judgername);
-   ACTION avgarbfee(time_point_sec init_time);
+   ACTION avgarbfee(time_point_sec exec_time);
    ACTION defavgarbfee();
 
    //using hi_action = action_wrapper<"hi"_n, &otcexchange::hi>;
    //USING_ACTION(otcexchange, hi);
-   ACTION newmarket(const symbol &stock,
+   ACTION newmarket(name creater,
+                    const symbol &stock,
                     const symbol &money,
                     double taker_ask_fee_rate,
                     double taker_bid_fee_rate,
@@ -176,8 +177,9 @@ public:
                     double maker_bid_fee_rate,
                     asset amount_min,
                     asset amount_max,
-                    asset price_min,
-                    asset price_max,
+                    asset base_price,
+                    double price_limit_upper,
+                    double price_limit_lower,
                     uint32_t pay_timeout,
                     uint32_t self_playcoin_time,
                     uint32_t def_cancel_timeout,
@@ -202,6 +204,7 @@ public:
    ACTION moduserrole(name user, const symbol_code &stock, uint8_t role);
    ACTION erauserrole(name user, const symbol_code &stock, uint8_t role);
    ACTION cleartables();
+   ACTION clearbpools();
 
 private:
    // ===================================延迟事务的senderid=============================
@@ -1029,6 +1032,7 @@ private:
 
    TABLE market
    {
+      name creater;               //是谁个创建了这个交易对
       symbol_code pair;           //交易对
       symbol stock;               //coin 需要指定[代币精度,代币符号]
       symbol money;               //fiat 需要指定[法币精度,法币符合]
@@ -1037,10 +1041,12 @@ private:
       int64_t maker_ask_fee_rate; // maker手续费费率[double×pow(10,4)]
       int64_t maker_bid_fee_rate; // maker手续费费率[double×pow(10,4)]
 
-      asset amount_min;            // 限定的最小交易数量  [数量，代币精度，代币符号]
-      asset amount_max;            // 限定的最大交易数量  [数量，代币精度，代币符号]
-      asset price_min;             // 限定的最小交易价格  [数量，代币精度，代币符号]
-      asset price_max;             // 限定的最大交易价格  [数量，代币精度，代币符号]
+      asset amount_min;           // 限定的最小交易数量  [数量，代币精度，代币符号]
+      asset amount_max;           // 限定的最大交易数量  [数量，代币精度，代币符号]
+      asset base_price;           // 限定的最小交易价格  [数量，代币精度，代币符号]
+      uint32_t price_limit_upper; // 价格上限偏离值
+      uint32_t price_limit_lower; // 价格下限偏离值
+
       asset zero_stock;            //代币的0值
       asset zero_money;            //法币的0值
       asset zero_rate;             //费率的0值
@@ -1051,7 +1057,7 @@ private:
       uint32_t cancel_ad_num;      //允许用户取消广告单次数
       uint8_t status;              //交易对是否允许交易
       std::string str_status;
-      std::string nickname; //昵称
+      std::string nickname;
       std::string stockname;
       std::string moneyname;
 
@@ -1352,11 +1358,14 @@ private:
       time_point_sec ctime;
       time_point_sec utime;
       std::string source; //备注
+      uint8_t status;     // 1：待执行 2：执行完成， 需要做冪等
       uint64_t primary_key() const { return date.sec_since_epoch(); }
    };
    using arbpool_index_t = multi_index<"arbpools"_n, arbpool>;
 
    void put_arbpool_fee(const symbol &stock, time_point_sec now, const std::set<name> &win_arbiters, asset fee, deal_iter_t itr_deal);
+
+   void erase_arbpools();
 
    //================================按用户统计deal=============================
 
@@ -1568,7 +1577,7 @@ private:
       return asset(static_cast<int64_t>(amount.amount * (fee_rate) / pr4 + 0.5), amount.symbol);
    }
 
-   std::pair<asset, asset> get_market_price_range(market_iter_t itr_pair, name who);
+   std::pair<asset, asset> get_market_price_range(market_iter_t itr_pair, name who, std::string & tip);
 
    bool isnotarber(name user, const symbol_code &stock);
 
@@ -1636,9 +1645,23 @@ private:
       return itr_js->s1;
    }
 
+   name get_currency_issuer(const symbol_code &sym_code);
+
 public:
-   inline void send_action_email(name cmder, uint8_t type, const std::string &contenxt)
+   //cc push action otcsystem addemail '[ "liguozheng12", 1, "cdlgz@qq.com", "1234", "/ipfs/dafsadf" ]' -p liguozheng12
+   //wner：邮箱地址关联的eos账号
+   //email_type：邮件类型  1：验证码 2：仲裁结果通知
+   //address: 邮箱地址
+   //content：邮件正文
+   //attachment：邮件附件
+   inline void send_action_email(name cmder, name receiver, uint8_t eamil_type, const std::string &email_address, const std::string &contenxt, const std::string &attachment)
    {
+      action(
+          permission_level{cmder, name{"active"}},
+          name{PRO_TOKEN_CONTRACT_NAME},
+          name{"addemail"},
+          std::make_tuple(receiver, eamil_type, email_address, contenxt, attachment))
+          .send();
    }
    inline void send_action_msg(name cmder, uint8_t type, const std::string &contenxt)
    {

@@ -75,18 +75,21 @@ zz get table otcexchange otcexchange judgers
 
  
 
-zz  push action otcexchange newmarket '["4,ADX","2,CNY",0.001,0.001,0.001,0.001,"1.0000 ADX","100.0000 ADX","1000.00 CNY","1000.00 CNY",600,180,180,180,6,2]' -p otcexchange
-zz  push action otcexchange newmarket '["4,ADX","2,USD",0.001,0.001,0.001,0.001,"1.0000 ADX","100.0000 ADX","1000.00 USD","1000.00 USD",600,180,180,180,6,2]' -p otcexchange
-zz  push action otcexchange newmarket '["4,EOS","2,USD",0.001,0.001,0.001,0.001,"1.0000 EOS","100.0000 EOS","1000.00 USD","1000.00 USD",600,180,180,180,6,2]' -p otcexchange
-zz  push action otcexchange newmarket '["4,EOS","2,CNY",0.001,0.001,0.001,0.001,"1.0000 EOS","100.0000 EOS","1000.00 CNY","1000.00 CNY",600,180,180,180,6,2]' -p otcexchange
+zz  push action otcexchange newmarket '["otcexchange","4,ADX","2,CNY",0.001,0.001,0.001,0.001,"1.0000 ADX","100.0000 ADX","1000.00 CNY",1.1,0.9,600,180,180,180,6,2]' -p otcexchange
+zz  push action otcexchange newmarket '["otcexchange","4,ADX","2,USD",0.001,0.001,0.001,0.001,"1.0000 ADX","100.0000 ADX","1000.00 USD",1.1,0.9,600,180,180,180,6,2]' -p otcexchange
+zz  push action otcexchange newmarket '["otcexchange","4,EOS","2,USD",0.001,0.001,0.001,0.001,"1.0000 EOS","100.0000 EOS","1000.00 USD",1.1,0.9,600,180,180,180,6,2]' -p otcexchange
+zz  push action otcexchange newmarket '["otcexchange","4,EOS","2,CNY",0.001,0.001,0.001,0.001,"1.0000 EOS","100.0000 EOS","1000.00 CNY",1.1,0.9,600,180,180,180,6,2]' -p otcexchange
 
 
 zz  push action otcexchange newarbst '["ADX",["3000.0000 ADX","2000.0000 ADX","1000.0000 ADX","4000.0000 ADX","6000.0000 ADX","5000.0000 ADX","7000.0000 ADX","8000.0000 ADX","9000.0000 ADX","10000.0000 ADX"]]' -p otcexchange@active 
 zz  push action otcexchange newarbst '["EOS",["3000.0000 EOS","2000.0000 EOS","1000.0000 EOS","4000.0000 EOS","6000.0000 EOS","5000.0000 EOS","7000.0000 EOS","8000.0000 EOS","9000.0000 EOS","10000.0000 EOS"]]' -p otcexchange@active 
 
 
+
+zz  push action otcexchange getemailcode '["a15","656717520@qq.com"]' -p a15@active 
 zz  push action otcexchange regarbiter '["a1","ADX","1000.0000 ADX",60,82800,"656717520@qq.com","1234"]' -p a1@active 
 zz  push action otcexchange regarbiter '["a2","ADX","2000.0000 ADX",120,82800,"656717520@qq.com","1234"]' -p a2@active 
+zz  push action otcexchange regarbiter '["a3","ADX","3000.0000 ADX",180,82800,"656717520@qq.com","1234"]' -p a3@active 
 zz  push action otcexchange regarbiter '["a3","ADX","3000.0000 ADX",180,82800,"656717520@qq.com","1234"]' -p a3@active 
 
 
@@ -104,6 +107,8 @@ zz get table otcexchange adxcnymkask adorders
 zz get table otcexchange adxcnymkbid adorders
 zz get table otcexchange adxcny deals
 zz get table otcexchange otcexchange markets
+
+
 
 
     #0.买方支付超时自动取消

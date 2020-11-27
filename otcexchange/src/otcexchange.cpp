@@ -85,10 +85,12 @@ ACTION otcexchange::cleartables()
       //overview_.remove();
    }
 }
-// 个人报酬:仲裁手续费/质押总金额×个人质押金额×个人胜利场次
-ACTION otcexchange::avgarbfee(time_point_sec init_time)
+//  仲裁手续费=仲裁手续费（0.2851）/质押总金额（9）/胜利总场次×个人质押金额（2）×个人胜利场次（10）
+
+ACTION otcexchange::avgarbfee(time_point_sec exec_time)
 {
    require_auth(_self);
+
    auto state = overview_.get();
    for (auto &item_str : state.stocks)
    {
@@ -101,11 +103,12 @@ ACTION otcexchange::avgarbfee(time_point_sec init_time)
       asset zero = asset(0, stock);
 
       asset total_balance = zero;
+      uint32_t total_success = 0;
 
       //在每天凌晨12:10运行,计算的上一天的数据
-      auto yestoday_date = init_time.sec_since_epoch() - init_time.sec_since_epoch() % DAY_SECONDS - DAY_SECONDS;
+      auto yestoday_date = exec_time.sec_since_epoch() - exec_time.sec_since_epoch() % DAY_SECONDS - DAY_SECONDS;
       auto itr_pool = t.find(yestoday_date);
-      if (itr_pool != t.end())
+      if (itr_pool != t.end() && itr_pool->status == 1)
       {
          for (auto &item : itr_pool->personal_arb_fee)
          {
@@ -113,37 +116,51 @@ ACTION otcexchange::avgarbfee(time_point_sec init_time)
             if (itr_arber != users_.end())
             {
                total_balance += itr_arber->balance;
+               total_success += itr_arber->today_win_num;
             }
          }
-      }
 
-      if (total_balance.amount > 0 && itr_pool != t.end())
-      {
-         for (auto &item : itr_pool->personal_arb_fee)
+         if (total_balance.amount > 0)
          {
-            auto itr_arber = users_.find(item.first.value);
-            if (itr_arber != users_.end())
+            for (auto &item : itr_pool->personal_arb_fee)
             {
-               std::string detail = itr_arber->account.to_string();
+               auto itr_arber = users_.find(item.first.value);
+               if (itr_arber != users_.end())
+               {
+                  std::string detail = itr_arber->account.to_string();
 
-               detail.append(" total_arb_fee:").append(itr_pool->total_arb_fee.to_string()).append(",");
-               detail.append(" total_balance:").append(itr_pool->total_balance.to_string()).append(",");
-               detail.append(" balance:").append(itr_arber->balance.to_string()).append(",");
-               detail.append(" today_win_num:").append(std::to_string(itr_arber->today_win_num)).append(",");
+                  detail.append(" total_arb_fee:").append(itr_pool->total_arb_fee.to_string()).append(",");
+                  detail.append(" total_balance:").append(total_balance.to_string()).append(",");
+                  detail.append(" total_success_num:").append(std::to_string(total_success)).append(",");
+                  detail.append(" balance:").append(itr_arber->balance.to_string()).append(",");
+                  detail.append(" today_win_num:").append(std::to_string(itr_arber->today_win_num)).append(",");
+                  detail.append("计算公式:").append(std::to_string(itr_pool->total_arb_fee.amount).append("/").append(std::to_string(total_balance.amount)).append("/").append(std::to_string(total_success)).append("*").append(std::to_string(itr_arber->balance.amount)).append("*").append(std::to_string(itr_arber->today_win_num)));
 
-               //send cc push action otcsystem award '[ "eoscngdszlgz", "10.0000 ADX"]' -p otcexchange
-               asset lab = zero;
-               t.modify(itr_pool, _self, [&](arbpool &a) {
-                  lab = asset(itr_pool->total_arb_fee.amount / total_balance.amount * itr_arber->balance.amount * itr_arber->today_win_num, stock);
-                  a.personal_arb_fee[item.first] = lab;
-               });
-               detail.append(" lab:").append(lab.to_string()).append("");
+                  auto r1 = (itr_pool->total_arb_fee * itr_arber->today_win_num * itr_arber->balance.amount) / (total_success) / (total_balance.amount);
+                  auto rate = static_cast<uint32_t>(double(itr_arber->balance.amount * itr_arber->today_win_num) / (total_balance.amount * total_success) * 10000 + 0.5);
 
-               send_action_award(_self, item.first, lab);
-
-               inset_balancelog(item.first, stock.code(), BALANCE_MOD_AVGARBFEE, lab, zero, lab, itr_arber->balance + lab, detail);
+                  asset lab = cal_fee(itr_pool->total_arb_fee, rate);
+                  detail.append("=").append(std::to_string(lab.amount));
+                  //send cc push action otcsystem award '[ "eoscngdszlgz", "10.0000 ADX"]' -p otcexchange
+                  t.modify(itr_pool, _self, [&lab, &item](arbpool &a) {
+                     a.personal_arb_fee[item.first] = lab;
+                  });
+                  detail.append(" lab:").append(lab.to_string()).append("");
+                  detail.append(" r1:").append(r1.to_string()).append("");
+                  print(detail, "\n");
+                  inset_balancelog(item.first, stock.code(), BALANCE_MOD_AVGARBFEE, lab, zero, lab, itr_arber->balance + lab, detail);
+                  if (lab.amount > 0)
+                  {
+                     send_action_award(_self, item.first, lab);
+                  }
+               }
             }
          }
+
+         t.modify(itr_pool, _self, [](arbpool &a) {
+            a.status = 2;
+            a.utime = CURRENT_SEC;
+         });
       }
    }
 
@@ -173,13 +190,14 @@ ACTION otcexchange::putadorder(const symbol_code &pair,
    check(can_today(user, CURRENT_SEC), "单日连续取消三次和发起仲裁，是买家，仲裁取消，是卖家，仲裁放币的，单日无法下单");
 
    auto itr_pair = get_open_market(pair);
-   auto price_range = get_market_price_range(itr_pair, user);
-   std::string ss{",价格浮动范围:["};
+   std::string ss{""};
+   auto price_range = get_market_price_range(itr_pair, user, ss);
+   ss.append(",价格浮动范围:[");
    ss.append(price_range.first.to_string()).append(",").append(price_range.second.to_string()).append("]");
 
    check(price > itr_pair->zero_money, ERR_MSG_PARAM_LT_ZERO(50210, price, ERR_MSG_PARAM_AD_PRICE_MUST_GT_ZERO));
-   check(price >= price_range.first, std::string("广告交易价格小于合约配置最低价").append(itr_pair->price_min.to_string()).append(ss));  //提示用户卖出最低价不能小于XX
-   check(price <= price_range.second, std::string("广告交易价格大于合约配置最高价").append(itr_pair->price_max.to_string()).append(ss)); //提示用户买入最高价不能大于XX
+   check(price >= price_range.first, std::string("广告交易价格小于配置最低价,").append(ss));  //提示用户卖出最低价不能小于XX
+   check(price <= price_range.second, std::string("广告交易价格大于配置最高价,").append(ss)); //提示用户买入最高价不能大于XX
 
    check(pay_ways.size() > 0, "广告主必须提供一种法币支付方式");
 
@@ -1583,7 +1601,7 @@ void otcexchange::update_stock_other_base_price_role(const symbol_code &pair)
    auto end = pairs.upper_bound(itr_pair->stock.raw());
    while (beg != end)
    {
-      print(beg->pair.to_string());
+      print(beg->pair.to_string(), "\n");
       if (beg->pair != pair && beg->base_price_role == 1)
 
          markets_.modify(*beg, _self, [&](market &m) {
@@ -2264,13 +2282,13 @@ std::string otcexchange::get_user_pay_accout_content(name asker, uint64_t pmt_id
    return res;
 }
 
-std::pair<asset, asset> otcexchange::get_market_price_range(market_iter_t itr_pair, name who)
+std::pair<asset, asset> otcexchange::get_market_price_range(market_iter_t itr_pair, name who, std::string &tip)
 {
    asset min = ZERO_ASSET(itr_pair->money);
    asset max = ZERO_ASSET(itr_pair->money);
 
-   uint32_t flow_min = DEFAULT_PRICE_LOW_RATE;
-   uint32_t flow_max = DEFAULT_PRICE_UP_RATE;
+   uint32_t flow_min = itr_pair->price_limit_lower;
+   uint32_t flow_max = itr_pair->price_limit_upper;
 
    static const name cname = name{"otcsystem"};
 
@@ -2290,11 +2308,15 @@ std::pair<asset, asset> otcexchange::get_market_price_range(market_iter_t itr_pa
       }
    }
 
-   print("交易对基本价格:", itr_pair->price_max.to_string());
+   tip.append("交易对基本价格:").append(itr_pair->base_price.to_string());
+   tip.append("价格浮动下线比例:").append(std::to_string(flow_min));
+   tip.append("价格浮动上线比例").append(std::to_string(flow_max));
+
+   print("交易对基本价格:", itr_pair->base_price.to_string());
    print("价格浮动下线比例:", flow_min);
    print("价格浮动上线比例:", flow_max);
 
-   return std::make_pair(cal_fee(itr_pair->price_max, flow_min), cal_fee(itr_pair->price_max, flow_max));
+   return std::make_pair(cal_fee(itr_pair->base_price, flow_min), cal_fee(itr_pair->base_price, flow_max));
 }
 std::pair<int64_t, int64_t> otcexchange::get_user_fee_rate(name user, const symbol_code &pair, uint8_t role)
 {
@@ -2395,7 +2417,15 @@ asset otcexchange::cal_asset(asset amount, uint32_t ratio)
    return asset(static_cast<int64_t>(amount.amount * ratio / pr2 + 0.5), amount.symbol);
 }
 
-ACTION otcexchange::newmarket(const symbol &stock,
+name otcexchange::get_currency_issuer(const symbol_code &sym_code)
+{
+   otcsystem::stats statstable(otcsystem::token_account, sym_code.raw());
+   const auto &st = statstable.get(sym_code.raw(), "symbol does not exist");
+   return st.issuer;
+}
+
+ACTION otcexchange::newmarket(name creater,
+                              const symbol &stock,
                               const symbol &money,
                               double taker_ask_fee_rate,
                               double taker_bid_fee_rate,
@@ -2403,8 +2433,9 @@ ACTION otcexchange::newmarket(const symbol &stock,
                               double maker_bid_fee_rate,
                               asset amount_min,
                               asset amount_max,
-                              asset price_min,
-                              asset price_max,
+                              asset base_price,
+                              double price_limit_upper,
+                              double price_limit_lower,
                               uint32_t pay_timeout,
                               uint32_t self_playcoin_time,
                               uint32_t def_cancel_timeout,
@@ -2412,11 +2443,16 @@ ACTION otcexchange::newmarket(const symbol &stock,
                               uint8_t cancel_ad_num,
                               uint8_t control_price_role)
 {
+   require_auth(creater);
 
-   require_auth(get_self()); //必须要求是合约账号的权限
+   if (creater != name{"otcexchange"})
+   {
+      name issuer = get_currency_issuer(stock.code());
+      check(creater == issuer, std::string("只有发币方才能创建这个代币的交易对，发币方是：").append(issuer.to_string()));
+   }
 
    //入参校验
-   print(control_price_role);
+   //print(control_price_role);
 
    check((control_price_role >= 1 && control_price_role <= 2), "control_price_role invalid");
 
@@ -2426,20 +2462,17 @@ ACTION otcexchange::newmarket(const symbol &stock,
    check(amount_max.symbol == stock, "amount的symbol跟coin的不一致");
    check(amount_max.symbol == amount_min.symbol, "2个amount的symbol不一致");
 
-   check(price_max.symbol == money, "price的symbol跟fiat的不一致");
-   check(price_max.symbol == price_min.symbol, "2个price的symbol不一致");
+   check(base_price.symbol == money, "price的symbol跟fiat的不一致");
 
    auto zero_stock = ZERO_ASSET(amount_max.symbol);
-   auto zero_money = ZERO_ASSET(price_max.symbol);
+   auto zero_money = ZERO_ASSET(base_price.symbol);
 
    check(amount_min > zero_stock, ERR_MSG_PARAM_LE_ZERO(50102, amount_min, ERR_MSG_PARAM_PAIR_AMOUNT_MIN_MUST_GT_ZERO));
    check(amount_max > zero_stock, ERR_MSG_PARAM_LE_ZERO(50103, amount_max, ERR_MSG_PARAM_PAIR_AMOUNT_MAX_MUST_GT_ZERO));
 
    check(amount_min <= amount_max, ERR_MSG_PARAM_LT(50104, amount_max, amount_min, ERR_MSG_PARAM_PAIR_AMOUNT_MAX_MUST_GE_MIN));
 
-   check(price_min > zero_money, ERR_MSG_PARAM_LE_ZERO(50105, price_min, ERR_MSG_PARAM_PAIR_PRICE_MIN_MUST_GT_ZERO));
-   check(price_max > zero_money, ERR_MSG_PARAM_LE_ZERO(50106, price_max, ERR_MSG_PARAM_PAIR_PRICE_MAX_MUST_GT_ZERO));
-   check(price_min <= price_max, ERR_MSG_PARAM_LT(50107, amount_max, amount_min, ERR_MSG_PARAM_PAIR_PRICE_MAX_MUST_GE_MIN));
+   check(base_price > zero_money, ERR_MSG_PARAM_LE_ZERO(50105, price_min, ERR_MSG_PARAM_PAIR_PRICE_MIN_MUST_GT_ZERO));
 
    check(pay_timeout > 0, ERR_MSG_PARAM_LT_ZERO(50108, pay_timeout, ERR_MSG_PARAM_PAIR_PAY_TIMEOUT_MUST_GT_ZERO));
    check(cancel_ad_num > 0, ERR_MSG_PARAM_LT_ZERO(50109, cancel_ad_num, ERR_MSG_PARAM_PAIR_AD_CANCEL_NUM_MUST_GT_ZERO));
@@ -2464,6 +2497,7 @@ ACTION otcexchange::newmarket(const symbol &stock,
    overview_.set(state, _self);
 
    markets_.emplace(_self, [&](market &m) {
+      m.creater = creater;
       m.pair = code_pair;
       m.stock = stock;
       m.money = money;
@@ -2473,8 +2507,9 @@ ACTION otcexchange::newmarket(const symbol &stock,
       m.maker_bid_fee_rate = double_to_pow4(maker_bid_fee_rate);
       m.amount_min = amount_min;
       m.amount_max = amount_max;
-      m.price_min = price_min;
-      m.price_max = price_max;
+      m.base_price = base_price;
+      m.price_limit_lower = double_to_pow4(price_limit_lower);
+      m.price_limit_upper = double_to_pow4(price_limit_upper);
       m.zero_stock = zero_stock;
       m.zero_money = zero_money;
       m.zero_rate = zero_stock;
@@ -2504,12 +2539,23 @@ ACTION otcexchange::modpairprice(name moder, const symbol_code &pair, asset new_
    auto it = markets_.find(pair.raw());
    check(it != markets_.end(), ERR_MSG_CHECK_FAILED(50110, pair.to_string().append(ERR_MSG_PAIR_NOT_EXIST)).c_str());
    check(new_price > it->zero_money, "price must >0 ");
+
+   if (it->control_price_role == 1)
+   {
+      name issuer = get_currency_issuer(it->stock.code());
+      check(moder == it->creater, std::string("此交易对设置了只有发币放才能修改基准价，当前发币方是:").append(issuer.to_string()));
+
+      markets_.modify(it, _self, [&](market &m) {
+         m.creater = issuer;
+         m.utime = CURRENT_SEC;
+      });
+   }
+
    if (it->status != MARKET_STATUS_OFF)
    {
       markets_.modify(it, _self, [&](market &m) {
-         m.price_max = new_price;
-         m.price_min = new_price;
-         m.utime = time_point_sec(current_time_point().sec_since_epoch());
+         m.base_price = new_price;
+         m.utime = CURRENT_SEC;
          if (it->control_price_role == 1) //发币方修改价格
          {
             m.base_price_role = 1; //荣生为基准价
@@ -2532,7 +2578,7 @@ ACTION otcexchange::closemarket(const symbol_code &pair)
       markets_.modify(it, _self, [](market &m) {
          m.status = MARKET_STATUS_OFF;
          m.str_status = MARKET_STATUS_OFF_STR;
-         m.utime = time_point_sec(current_time_point().sec_since_epoch());
+         m.utime = CURRENT_SEC;
       });
    }
 }
@@ -2547,7 +2593,7 @@ ACTION otcexchange::openmarket(const symbol_code &pair)
       markets_.modify(it, _self, [](market &m) {
          m.status = MARKET_STATUS_ON;
          m.str_status = MARKET_STATUS_ON_STR;
-         m.utime = time_point_sec(current_time_point().sec_since_epoch());
+         m.utime = CURRENT_SEC;
       });
    }
 }
@@ -2687,7 +2733,6 @@ ACTION otcexchange::modarbemail(name arbitername, const symbol_code &stock, cons
 
 ACTION otcexchange::unregarbiter(name arbitername, const symbol_code &stock, const std::string &reason)
 {
-
    require_auth(arbitername);
    std::string str_stock = stock.to_string();
    str_stock = lower_str(str_stock);
@@ -3025,7 +3070,6 @@ ACTION otcexchange::erauserrole(name user, const symbol_code &stock, uint8_t rol
 
 bool otcexchange::isnotarber(name user, const symbol_code &stock)
 {
-
    bool res = true;
    userrole_index_t t(_self, user.value);
 
@@ -3126,13 +3170,24 @@ void otcexchange::erase_balancelogs(name user)
 void otcexchange::insert_emailcode(name who, const std::string &email)
 {
    emailcode_index_t t(_self, who.value);
+   auto gen = random_gen(who);
+   std::string code = std::to_string(gen.range(1000, 9999));
+   /*
+   auto beg = t.begin();
+   if(beg==t.end()){
+
+   }else{
+
+   }*/
+
    t.emplace(_self, [&](emailcode &ec) {
       ec.id = t.available_primary_key();
       ec.email = email;
       ec.ctime = CURRENT_SEC;
-      auto gen = random_gen(who);
-      ec.code = std::to_string(gen.range(1000, 9999));
+      ec.code = code;
    });
+
+   send_action_email(who, who, 1, email, code, ""); //附件为空哦
 }
 bool otcexchange::check_emailcode(name who, const std::string &email, const std::string &code)
 {
@@ -3190,6 +3245,7 @@ void otcexchange::put_arbpool_fee(const symbol &stock, time_point_sec now, const
                a.personal_arb_fee.emplace(item, zero_asset);
             }
          }
+         a.status = 1;
       });
    }
 }
@@ -3244,6 +3300,28 @@ std::string otcexchange::get_deal_status_str(uint8_t status)
    }
 
    return "";
+}
+
+void otcexchange::erase_arbpools()
+{
+   auto state = overview_.get();
+   for (auto &item_str : state.stocks)
+   {
+      std::string str_stock = item_str;
+      str_stock = lower_str(str_stock);
+      arbpool_index_t t(_self, name{str_stock}.value);
+      auto it = t.begin();
+      while (it != t.end())
+      {
+         it = t.erase(it);
+      }
+   }
+}
+
+ACTION otcexchange::clearbpools()
+{
+   require_auth(_self);
+   erase_arbpools();
 }
 
 ACTION otcexchange::rmappeals(const symbol_code &pair)
@@ -3302,7 +3380,6 @@ ACTION otcexchange::rmjudorders(const symbol_code &pair)
 }
 ACTION otcexchange::rmjudtasks(name judgername)
 {
-
    require_auth(_self);
    judgetask_index_t d_(_self, judgername.value); //表名，按用户分表，不是按pair分表
    auto it = d_.begin();
