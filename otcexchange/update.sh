@@ -42,6 +42,7 @@ zz  push action otcexchange rmdhs '["testdfg12345"]' -p otcexchange
 
 
 
+
 zz  push action otcexchange rmappeals '["ADXCNY"]' -p otcexchange
 zz  push action otcexchange rmappeals '["ADXUSD"]' -p otcexchange
 zz  push action otcexchange rmappeals '["EOSUSD"]' -p otcexchange
@@ -72,12 +73,12 @@ zz  push action otcexchange rmarbiters '[ADX]' -p otcexchange
 zz  push action otcexchange rmjudgers '[ADX]' -p otcexchange
 zz get table otcexchange otcexchange judgers
 
+ 
 
-
-zz  push action otcexchange newmarket '["4,ADX","2,CNY",0.001,0.001,0.001,0.001,"1.0000 ADX","100.0000 ADX","100.00 CNY","1000.00 CNY",600,180,180,180,180,6]' -p otcexchange
-zz  push action otcexchange newmarket '["4,ADX","2,USD",0.001,0.001,0.001,0.001,"1.0000 ADX","100.0000 ADX","100.00 USD","1000.00 USD",600,180,180,180,180,6]' -p otcexchange
-zz  push action otcexchange newmarket '["4,EOS","2,USD",0.001,0.001,0.001,0.001,"1.0000 EOS","100.0000 EOS","100.00 USD","1000.00 USD",600,180,180,180,180,6]' -p otcexchange
-zz  push action otcexchange newmarket '["4,EOS","2,CNY",0.001,0.001,0.001,0.001,"1.0000 EOS","100.0000 EOS","100.00 CNY","1000.00 CNY",600,180,180,180,180,6]' -p otcexchange
+zz  push action otcexchange newmarket '["4,ADX","2,CNY",0.001,0.001,0.001,0.001,"1.0000 ADX","100.0000 ADX","1000.00 CNY","1000.00 CNY",600,180,180,180,6,2]' -p otcexchange
+zz  push action otcexchange newmarket '["4,ADX","2,USD",0.001,0.001,0.001,0.001,"1.0000 ADX","100.0000 ADX","1000.00 USD","1000.00 USD",600,180,180,180,6,2]' -p otcexchange
+zz  push action otcexchange newmarket '["4,EOS","2,USD",0.001,0.001,0.001,0.001,"1.0000 EOS","100.0000 EOS","1000.00 USD","1000.00 USD",600,180,180,180,6,2]' -p otcexchange
+zz  push action otcexchange newmarket '["4,EOS","2,CNY",0.001,0.001,0.001,0.001,"1.0000 EOS","100.0000 EOS","1000.00 CNY","1000.00 CNY",600,180,180,180,6,2]' -p otcexchange
 
 
 zz  push action otcexchange newarbst '["ADX",["3000.0000 ADX","2000.0000 ADX","1000.0000 ADX","4000.0000 ADX","6000.0000 ADX","5000.0000 ADX","7000.0000 ADX","8000.0000 ADX","9000.0000 ADX","10000.0000 ADX"]]' -p otcexchange@active 
@@ -92,7 +93,7 @@ zz  push action otcexchange regarbiter '["a3","ADX","3000.0000 ADX",180,82800,"6
 zz  push action otcexchange regjuder '["otcexchange","ADX",0,86400,"656717520@qq.com","1234"]' -p otcexchange@active 
 zz  push action otcexchange regjuder '["otcexchange","EOS",0,86400,"656717520@qq.com","1234"]' -p otcexchange@active 
 
-zz  push action otcexchange  putadorder '["ADXCNY","bid","zhouhao","100.00 CNY","100.0000 ADX","1.0000 ADX","100.0000 ADX",[1,2],[1],["61123444444"],"zh要买ADXCNY 100.0000 ADX,价格是100.00 CNY"]' -p zhouhao@active
+zz  push action otcexchange  putadorder '["ADXCNY","bid","zhouhao","900.00 CNY","100.0000 ADX","1.0000 ADX","100.0000 ADX",[1,2],[1],["61123444444"],"zh要买ADXCNY 100.0000 ADX,价格是100.00 CNY"]' -p zhouhao@active
 
 
 zz  push action otcexchange  putadorder '["ADXCNY","ask","zhouhao","100.00 CNY","100.0000 ADX","1.0000 ADX","100.0000 ADX",[1,2],[1],["61123444444"],"zh要卖ADXCNY 100.0000 ADX,价格是100.00 CNY"]' -p zhouhao@active

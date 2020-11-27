@@ -4,6 +4,7 @@
 #include <eosio/action.hpp>
 #include <eosio/transaction.hpp>
 #include <eosio/singleton.hpp>
+#include <eosio/crypto.hpp>
 #include <eosio/name.hpp>
 #include <string>
 #include <vector>
@@ -13,6 +14,44 @@
 #include "define.h"
 
 using namespace eosio;
+
+/**
+ * 随机数生成器
+ */
+class random_gen
+{
+private:
+   uint64_t seed = 0;
+
+public:
+   random_gen(name account)
+   {
+      seed = current_time_point().time_since_epoch().count() + account.value;
+   }
+
+   uint32_t range(uint32_t to)
+   {
+      checksum256 result = sha256((char *)&seed, sizeof(seed));
+      auto arr = result.extract_as_byte_array();
+      seed = arr[1];
+      seed <<= 32;
+      seed |= arr[0];
+      return (uint32_t)(seed % to);
+   }
+
+   uint32_t range(uint32_t from, uint32_t to)
+   {
+      if (from == to)
+      {
+         return from;
+      }
+      else if (from < to)
+      {
+         return range(to - from + 1) + from;
+      }
+      return range(to);
+   }
+};
 
 CONTRACT otcexchange : public contract
 {
@@ -74,14 +113,16 @@ public:
                     const std::string &desc,
                     const std::vector<std::string> &vec_img,
                     const std::vector<std::string> &vec_video,
-                    const std::string &source);
+                    const std::string &source,
+                    const std::string &email = "");
 
    ACTION putjudge(name failer, const symbol_code &pair, uint64_t deal_id, const std::vector<std::string> &vec_contacts,
                    const std::string &reason,
                    const std::string &desc,
                    const std::vector<std::string> &vec_img,
                    const std::vector<std::string> &vec_video,
-                   const std::string &source);
+                   const std::string &source,
+                   const std::string &email = "");
 
    ACTION defcldeal(const symbol_code &pair, name cmder, uint64_t deal_id, uint8_t status, const std::string &reason);
 
@@ -101,6 +142,7 @@ public:
    ACTION rmdhs(name who);
 
    //申请成为仲裁员
+   ACTION getemailcode(name who, const std::string &email); //生成一个验证码,保存起来,要跟注册时比对
    ACTION regarbiter(name arbitername, const symbol_code &stock, asset mortgage, uint32_t online_begin, uint32_t online_end, const std::string &email, const std::string &verify_code);
    ACTION modarbtime(name arbitername, const symbol_code &stock, uint32_t online_begin, uint32_t online_end);
    ACTION modarbemail(name arbitername, const symbol_code &stock, const std::string &email, const std::string &verify_code);
@@ -140,7 +182,10 @@ public:
                     uint32_t self_playcoin_time,
                     uint32_t def_cancel_timeout,
                     uint32_t def_playcoin_timeout,
-                    uint8_t cancel_ad_num);
+                    uint8_t cancel_ad_num,
+                    uint8_t control_price_role);
+
+   ACTION modpairprice(name moder, const symbol_code &pair, asset new_price);
 
    ACTION closemarket(const symbol_code &pair);
    ACTION openmarket(const symbol_code &pair);
@@ -211,32 +256,9 @@ private:
 
                                           >;
 
-   void inset_balancelog(name user, const symbol_code &stock, const std::string &business, asset amount, asset fee, asset change, asset balance, const std::string &detail)
-   {
-      balancelog_index_t t(_self, user.value); //得到表
-      t.emplace(_self, [&](balancelog &b) {
-         b.id = t.available_primary_key();
-         b.ctime = CURRENT_SEC;
-         b.user = user;
-         b.stock = stock;
-         b.business = business;
-         b.amount = amount;
-         b.fee = fee;
-         b.change = change;
-         b.balance = balance;
-         b.detail = detail;
-      });
-   }
+   void inset_balancelog(name user, const symbol_code &stock, const std::string &business, asset amount, asset fee, asset change, asset balance, const std::string &detail);
 
-   void erase_balancelogs(name user)
-   {
-      balancelog_index_t t(_self, user.value); //得到表
-      auto it = t.begin();
-      while (it != t.end())
-      {
-         it = t.erase(it);
-      }
-   }
+   void erase_balancelogs(name user);
 
    //===========================================日志信息===========================================
 
@@ -318,7 +340,6 @@ private:
       {
          t.emplace(_self, [&](userdaystat &u) {
             u.day = day;
-            ;
             u.account = who;
             if (kind == EXCHANGE)
             {
@@ -368,7 +389,7 @@ private:
       userdaystat_index_t t(_self, who.value);
       auto it = t.find(day_start(when).sec_since_epoch());
       bool res = true;
-      if (it != t.end() && (it->day_cancel_deal_num > 3 || it->day_arb_fail_num >= 1))
+      if (it != t.end() && (it->day_cancel_deal_num >= 3 || it->day_arb_fail_num >= 1))
       {
          res = false;
       }
@@ -1016,37 +1037,47 @@ private:
       int64_t maker_ask_fee_rate; // maker手续费费率[double×pow(10,4)]
       int64_t maker_bid_fee_rate; // maker手续费费率[double×pow(10,4)]
 
-      asset amount_min;                  // 限定的最小交易数量  [数量，代币精度，代币符号]
-      asset amount_max;                  // 限定的最大交易数量  [数量，代币精度，代币符号]
-      asset price_min;                   // 限定的最小交易价格  [数量，代币精度，代币符号]
-      asset price_max;                   // 限定的最大交易价格  [数量，代币精度，代币符号]
-      asset zero_stock;                  //代币的0值
-      asset zero_money;                  //法币的0值
-      asset zero_rate;                   //费率的0值
-      uint32_t pay_timeout;              //买币方支付法币的超时时间,精确到s
-      uint32_t self_playcoin_time;       //自己放币延迟时间
-      uint32_t def_cancel_time;          //初次仲裁取消，延迟取消的时间,精确到s,这段时间用户可以发起终审
-      uint32_t def_playcoin_time;        //初次仲裁通过，延迟放币的时间,精确到s，这段时间用户可以发起终审
-      uint32_t cancel_ad_num;            //允许用户取消广告单次数
-      uint8_t status = MARKET_STATUS_ON; //交易对是否允许交易
+      asset amount_min;            // 限定的最小交易数量  [数量，代币精度，代币符号]
+      asset amount_max;            // 限定的最大交易数量  [数量，代币精度，代币符号]
+      asset price_min;             // 限定的最小交易价格  [数量，代币精度，代币符号]
+      asset price_max;             // 限定的最大交易价格  [数量，代币精度，代币符号]
+      asset zero_stock;            //代币的0值
+      asset zero_money;            //法币的0值
+      asset zero_rate;             //费率的0值
+      uint32_t pay_timeout;        //买币方支付法币的超时时间,精确到s
+      uint32_t self_playcoin_time; //自己放币延迟时间
+      uint32_t def_cancel_time;    //初次仲裁取消，延迟取消的时间,精确到s,这段时间用户可以发起终审
+      uint32_t def_playcoin_time;  //初次仲裁通过，延迟放币的时间,精确到s，这段时间用户可以发起终审
+      uint32_t cancel_ad_num;      //允许用户取消广告单次数
+      uint8_t status;              //交易对是否允许交易
       std::string str_status;
       std::string nickname; //昵称
       std::string stockname;
       std::string moneyname;
+
+      uint8_t control_price_role; //1:发行方控制价格 2：由后台自动更新
+      uint8_t base_price_role;    //1:计算相同代币的基准价 2.不是
+
       time_point_sec ctime{current_time_point().sec_since_epoch()};
       time_point_sec utime{current_time_point().sec_since_epoch()};
 
       uint64_t primary_key() const { return pair.raw(); }
-      uint64_t get_secondary_status() const { return status; }     // sort by status，按交易对状态过滤
-      uint64_t get_secondary_stock() const { return stock.raw(); } // sort by status，按交易对状态过滤
-      uint64_t get_secondary_fiat() const { return money.raw(); }  // sort by status，按交易对状态过滤
+      uint64_t get_secondary_status() const { return status; }
+      uint64_t get_secondary_stock() const { return stock.raw(); }
+      uint64_t get_secondary_fiat() const { return money.raw(); }
+      uint64_t get_secondary_control_price() const { return control_price_role; }
+      uint64_t get_secondary_base_price() const { return base_price_role; }
    };
 
    using market_index_t = multi_index<"markets"_n,
                                       market,
                                       indexed_by<"bystatus"_n, const_mem_fun<market, uint64_t, &market::get_secondary_status>>,
                                       indexed_by<"bystock"_n, const_mem_fun<market, uint64_t, &market::get_secondary_stock>>,
-                                      indexed_by<"byfiat"_n, const_mem_fun<market, uint64_t, &market::get_secondary_fiat>>>;
+                                      indexed_by<"byfiat"_n, const_mem_fun<market, uint64_t, &market::get_secondary_fiat>>,
+                                      indexed_by<"bymanprice"_n, const_mem_fun<market, uint64_t, &market::get_secondary_control_price>>,
+                                      indexed_by<"bybaseprice"_n, const_mem_fun<market, uint64_t, &market::get_secondary_base_price>>
+
+                                      >;
 
    using market_iter_t = market_index_t::const_iterator;
 
@@ -1080,6 +1111,8 @@ private:
          it = markets_.erase(it);
       }
    }
+
+   void update_stock_other_base_price_role(const symbol_code &pair);
 
    //==================================交易对的概括,scope是合约=======================================
 
@@ -1301,57 +1334,7 @@ private:
       }
    }
 
-   inline std::string get_deal_status_str(uint8_t status)
-   {
-      switch (status)
-      {
-      case DEAL_STATUS_UNPAID_MAN_CANCEL:
-         return DEAL_STATUS_UNPAID_MAN_CANCEL_STR;
-
-      case DEAL_STATUS_UNPAID_TIMEOUT_CANCEL:
-         return DEAL_STATUS_UNPAID_TIMEOUT_CANCEL_STR;
-
-      case DEAL_STATUS_SUCCESS_FINISHED:
-         return DEAL_STATUS_SUCCESS_FINISHED_STR;
-
-      case DEAL_STATUS_ARB_CANCEL_FINISHED:
-         return DEAL_STATUS_ARB_CANCEL_FINISHED_STR;
-
-      case DEAL_STATUS_ARB_PLAYCOIN_FINISHED:
-         return DEAL_STATUS_ARB_PLAYCOIN_FINISHED_STR;
-
-      case DEAL_STATUS_JUD_CANCEL_FINISHED:
-         return DEAL_STATUS_JUD_CANCEL_FINISHED_STR;
-
-      case DEAL_STATUS_JUD_PLAYCOIN_FINISHED:
-         return DEAL_STATUS_JUD_PLAYCOIN_FINISHED_STR;
-
-      case DEAL_STATUS_PAID_WAIT_PLAYCOIN:
-         return DEAL_STATUS_PAID_WAIT_PLAYCOIN_STR;
-
-      case DEAL_STATUS_PAID_PLAYCOIN_ING:
-         return DEAL_STATUS_PAID_PLAYCOIN_ING_STR;
-
-      case DEAL_STATUS_PAID_APPEAL_ASK:
-         return DEAL_STATUS_PAID_APPEAL_ASK_STR;
-      case DEAL_STATUS_PAID_APPEAL_BID:
-         return DEAL_STATUS_PAID_APPEAL_BID_STR;
-      case DEAL_STATUS_PAID_APPEAL_ALL:
-         return DEAL_STATUS_PAID_APPEAL_ALL_STR;
-
-      case DEAL_STATUS_PAID_ARBIARATE_ING:
-         return DEAL_STATUS_PAID_ARBIARATE_ING_STR;
-      case DEAL_STATUS_PAID_ARBIARATE_CANCEL:
-         return DEAL_STATUS_PAID_ARBIARATE_CANCEL_STR;
-      case DEAL_STATUS_PAID_ARBIARATE_PALYCOIN:
-         return DEAL_STATUS_PAID_ARBIARATE_PALYCOIN_STR;
-
-      case DEAL_STATUS_PAID_JUDGING:
-         return DEAL_STATUS_PAID_JUDGING_STR;
-      }
-
-      return "";
-   }
+   std::string get_deal_status_str(uint8_t status);
 
    //========================================仲裁池,scope是stock===============================================
 
@@ -1373,46 +1356,7 @@ private:
    };
    using arbpool_index_t = multi_index<"arbpools"_n, arbpool>;
 
-   void put_arbpool_fee(const symbol &stock, time_point_sec now, const std::set<name> &win_arbiters, asset fee, deal_iter_t itr_deal)
-   {
-      std::string str_stock = stock.code().to_string();
-      str_stock = lower_str(str_stock);
-      arbpool_index_t t(_self, name{str_stock}.value);
-      auto zero_asset = ZERO_ASSET(stock);
-      auto day = day_start(now);
-      auto it = t.find(day.sec_since_epoch());
-      if (it != t.end())
-      {
-         t.modify(it, _self, [&](arbpool &a) {
-            a.utime = CURRENT_SEC;
-            a.total_arb_fee += fee;
-
-            for (auto &item : win_arbiters)
-            {
-               if (a.personal_arb_fee.find(item) == a.personal_arb_fee.end())
-               {
-                  a.personal_arb_fee.emplace(item, zero_asset);
-               }
-            }
-         });
-      }
-      else
-      {
-         t.emplace(_self, [&](arbpool &a) {
-            a.date = day;
-            a.ctime = CURRENT_SEC;
-            a.utime = a.ctime;
-            a.total_arb_fee = fee;
-            for (auto &item : win_arbiters)
-            {
-               if (a.personal_arb_fee.find(item) == a.personal_arb_fee.end())
-               {
-                  a.personal_arb_fee.emplace(item, zero_asset);
-               }
-            }
-         });
-      }
-   }
+   void put_arbpool_fee(const symbol &stock, time_point_sec now, const std::set<name> &win_arbiters, asset fee, deal_iter_t itr_deal);
 
    //================================按用户统计deal=============================
 
@@ -1517,6 +1461,22 @@ private:
       });
    }
 
+   //================================记录用户邮箱验证码,scope是用户============================================
+
+   TABLE emailcode
+   {
+      uint64_t id; //pk auto increase
+      std::string email;
+      std::string code;
+      time_point_sec ctime;
+      uint64_t primary_key() const { return id; }
+   };
+   using emailcode_index_t = multi_index<"emailcodes"_n, emailcode>;
+
+   void insert_emailcode(name who, const std::string &email);
+
+   bool check_emailcode(name who, const std::string &email, const std::string &code);
+
 private:
    //=============================合约的私有的公用函数===============================
    inline static uint8_t side_to_uint(const std::string &side)
@@ -1569,29 +1529,7 @@ private:
       return res == 1;
    }
 
-   uint8_t get_level(const symbol_code &stock, asset balance)
-   {
-      auto state = overview_.get();
-      auto it_precision = state.precisions.find(stock.to_string());
-      check(it_precision != state.precisions.end(), "代币不存在，请先创建代币的交易对");
-      asset zero = asset(0, symbol(stock, it_precision->second));
-      check(balance > zero, "抵押代币必须大于0");
-      auto it = arbsts_.require_find(stock.raw(), "找不到仲裁等级配置项");
-      uint8_t level = 0;
-      for (auto &item : it->vec_level)
-      {
-         if (balance >= item)
-         {
-            ++level;
-            continue;
-         }
-         else
-         {
-            break;
-         }
-      }
-      return level;
-   }
+   uint8_t get_level(const symbol_code &stock, asset balance);
 
    void get_avail_arbiter(const symbol_code &stock, std::set<name> &res, int num, const time_point_sec &ctime, deal_iter_t itr_deal);
    void get_avail_judger(const symbol_code &stock, std::set<name> &res, int num, const time_point_sec &ctime, deal_iter_t itr_deal);
@@ -1630,7 +1568,7 @@ private:
       return asset(static_cast<int64_t>(amount.amount * (fee_rate) / pr4 + 0.5), amount.symbol);
    }
 
-   std::pair<asset, asset> get_market_price_range(market_iter_t itr_pair);
+   std::pair<asset, asset> get_market_price_range(market_iter_t itr_pair, name who);
 
    bool isnotarber(name user, const symbol_code &stock);
 
@@ -1680,7 +1618,31 @@ private:
       }
    }
 
+   std::string get_issue_appealer_email(deal_iter_t it)
+   {
+      auto str_pair = it->pair.to_string();
+      str_pair = lower_str(str_pair);
+      xappeal_index_t appeals(_self, name{str_pair}.value);
+      auto itr_appeal = appeals.require_find(it->id, "申请仲裁的上传材料id找不到");
+      return (it->appeal_side == MARKET_ORDER_SIDE_ASK) ? itr_appeal->ask_s1 : itr_appeal->bid_s1;
+   }
+
+   std::string get_issue_judger_email(deal_iter_t it)
+   {
+      auto str_pair = it->pair.to_string();
+      str_pair = lower_str(str_pair);
+      judge_index_t js(_self, name{str_pair}.value);
+      auto itr_js = js.require_find(it->id, "申请终审的上传材料id找不到");
+      return itr_js->s1;
+   }
+
 public:
+   inline void send_action_email(name cmder, uint8_t type, const std::string &contenxt)
+   {
+   }
+   inline void send_action_msg(name cmder, uint8_t type, const std::string &contenxt)
+   {
+   }
    inline void send_action_award(name cmder, name who, asset lab)
    {
       action(
@@ -1744,7 +1706,7 @@ public:
       std::string msg = "defavgarbfee transaction info: ";
       msg.append("init_time:").append(std::to_string(delay_time_point));
       msg.append(",delay_sec:").append(std::to_string(delay_sec));
-      msg.append(",sender_id").append(std::to_string(sender_id));
+      msg.append(",sender_id:").append(std::to_string(sender_id));
       log(msg, LOG_TYPE_DEF_TRANS);
    }
 

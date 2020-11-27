@@ -3,16 +3,14 @@ if [ ! -d build ]; then
 fi
 cd ./build
 cmake -DCMAKE_BUILD_TYPE='Release' \
-      -DCMAKE_CXX_COMPILER='clang++-10' \
-      -DCMAKE_C_COMPILER='clang-10' \
-      -DLLVM_DIR='/usr/lib/llvm-10/lib/cmake/llvm'  ..
-make -j4
+     -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_PROJECTS=clang -DLLVM_USE_LINKER=gold -G "Unix Makefiles" ..
+make -j 8
 cd ..
 
 zz='/usr/opt/eosio/2.0.7/bin/cleos -v --url http://zhongyingying.qicp.io:38000 --wallet-url http://zhongyingying.qicp.io:38001'
 ## zz='/usr/opt/eosio/2.0.4/bin/cleos -v --url http://zhongyingying.qicp.io:38000 --wallet-url http://zhongyingying.qicp.io:38001'
 
-
+##cmake -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_ENABLE_PROJECTS=clang -DLLVM_USE_LINKER=gold -G "Unix Makefiles" ../llvm 
 
 
 

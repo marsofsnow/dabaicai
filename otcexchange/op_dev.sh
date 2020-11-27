@@ -469,3 +469,7 @@ PW5JL3SP3tG42sch9z5Li9eaYMM96QXA5z6b23mqd5nBpdMKstsAj
 
 
     "source": "huabinliang2 bid 吃单:wait pay|买方huabinliang2已支付,payed,wait playcoin|huabinliang2发起申诉:bider appeal|第一个仲裁员bbbbbb111112仲裁:arbiarating|共识取消放币:bbbbbb111114仲裁:arbiarate cancel playcoin|arb deal cancel"
+
+
+    zz get table otcexchange  adx arbpools
+    zz  push action otcexchange defavgarbfee '[]' -p otcexchange
